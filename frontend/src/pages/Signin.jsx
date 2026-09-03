@@ -1,22 +1,136 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
-// import ParticleBackground from '../components/ParticleBackground'
 
 const SignIn = () => {
+
+  const navigate = useNavigate()
+
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  })
+
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+
+  // -------------------------
+  // Handle input
+  // -------------------------
+
+  const handleChange = (e) => {
+
+    setFormData({
+      ...formData,
+      [e.target.id]: e.target.value
+    })
+
+  }
+
+
+  // -------------------------
+  // Login
+  // -------------------------
+
+  const handleLogin = async (e) => {
+
+    e.preventDefault()
+
+    setError('')
+
+    if (!formData.email || !formData.password) {
+
+      setError('Please enter email and password')
+
+      return
+    }
+
+
+    try {
+
+      setLoading(true)
+
+
+      const response = await fetch(
+        'http://localhost:5000/api/auth/login',
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type': 'application/json'
+          },
+
+          body: JSON.stringify(formData)
+        }
+      )
+
+
+      const data = await response.json()
+
+
+      if (!response.ok) {
+
+        setError(data.message || 'Login failed')
+
+        return
+      }
+
+
+      // -------------------------
+      // Store authentication
+      // -------------------------
+
+      localStorage.setItem(
+        'token',
+        data.token
+      )
+
+      localStorage.setItem(
+        'user',
+        JSON.stringify(data.user)
+      )
+
+
+      // -------------------------
+      // Role based redirect
+      // -------------------------
+
+      if (data.user.role === 'MERCHANT') {
+
+        navigate('/merchant')
+
+      } else {
+
+        navigate('/app')
+
+      }
+
+
+    } catch (error) {
+
+      console.error(error)
+
+      setError('Unable to connect to server')
+
+    } finally {
+
+      setLoading(false)
+
+    }
+
+  }
+
+
   return (
+
     <main className="relative min-h-screen overflow-hidden bg-black text-white">
 
-      {/* Your particle background */}
-      {/* <ParticleBackground /> */}
-
-      {/* Dark overlay */}
       <div className="pointer-events-none absolute inset-0 bg-black/40" />
 
-      {/* Navbar */}
       <Navbar />
 
-      {/* Sign In */}
+
       <section className="relative z-10 flex min-h-screen items-center justify-center px-6">
 
         <div
@@ -33,26 +147,33 @@ const SignIn = () => {
           "
         >
 
-          {/* Main form */}
-          <div className="px-9 pb-8 pt-9">
+          <form
+            onSubmit={handleLogin}
+            className="px-9 pb-8 pt-9"
+          >
 
             {/* Sparkle */}
+
             <div className="mb-5 text-center text-lg text-white/70">
               ✦
             </div>
 
+
             {/* Heading */}
-            <h1 className="text-center text-[19px] font-medium tracking-[-0.02em]">
+
+            <h1 className="text-center text-[19px] font-medium">
               Welcome back
             </h1>
 
             <p className="mt-2 text-center text-[12px] text-white/40">
-              Sign in to continue shopping with SHIRU
+              Sign in to continue with SHIRU
             </p>
 
 
             {/* Google */}
+
             <button
+              type="button"
               className="
                 mt-7
                 flex
@@ -68,21 +189,22 @@ const SignIn = () => {
                 py-3
                 text-[12px]
                 text-white/70
-                transition
                 hover:border-white/20
                 hover:bg-white/[0.05]
-                hover:text-white
               "
             >
+
               <span className="text-base font-semibold">
                 G
               </span>
 
               Continue with Google
+
             </button>
 
 
             {/* Divider */}
+
             <div className="my-7 flex items-center gap-4">
 
               <div className="h-px flex-1 bg-white/[0.08]" />
@@ -97,10 +219,12 @@ const SignIn = () => {
 
 
             {/* Email */}
+
             <div>
+
               <label
                 htmlFor="email"
-                className="mb-2 block text-[11px] font-medium text-white/70"
+                className="mb-2 block text-[11px] text-white/70"
               >
                 Email address
               </label>
@@ -108,6 +232,8 @@ const SignIn = () => {
               <input
                 id="email"
                 type="email"
+                value={formData.email}
+                onChange={handleChange}
                 placeholder="Enter your email address"
                 className="
                   w-full
@@ -120,39 +246,42 @@ const SignIn = () => {
                   text-[12px]
                   text-white
                   outline-none
-                  transition
                   placeholder:text-white/25
                   focus:border-white/30
-                  focus:bg-white/[0.06]
                 "
               />
+
             </div>
 
 
             {/* Password */}
+
             <div className="mt-5">
 
               <div className="mb-2 flex items-center justify-between">
 
                 <label
                   htmlFor="password"
-                  className="text-[11px] font-medium text-white/70"
+                  className="text-[11px] text-white/70"
                 >
                   Password
                 </label>
 
-                <button
-                  type="button"
+                <Link
+                  to="/forgot-password"
                   className="text-[10px] text-white/35 transition hover:text-white"
                 >
                   Forgot password?
-                </button>
+                </Link>
 
               </div>
+
 
               <input
                 id="password"
                 type="password"
+                value={formData.password}
+                onChange={handleChange}
                 placeholder="Enter your password"
                 className="
                   w-full
@@ -165,18 +294,30 @@ const SignIn = () => {
                   text-[12px]
                   text-white
                   outline-none
-                  transition
                   placeholder:text-white/25
                   focus:border-white/30
-                  focus:bg-white/[0.06]
                 "
               />
 
             </div>
 
 
-            {/* Continue */}
+            {/* Error */}
+
+            {error && (
+
+              <p className="mt-4 text-center text-[11px] text-red-400">
+                {error}
+              </p>
+
+            )}
+
+
+            {/* Submit */}
+
             <button
+              type="submit"
+              disabled={loading}
               className="
                 mt-7
                 w-full
@@ -188,19 +329,28 @@ const SignIn = () => {
                 font-medium
                 text-black
                 transition-all
-                duration-300
                 hover:scale-[1.01]
                 hover:bg-white/90
+                disabled:cursor-not-allowed
+                disabled:opacity-50
               "
             >
-              Continue
-              <span className="ml-2 text-black/50">→</span>
+
+              {loading ? 'Signing in...' : 'Continue'}
+
+              {!loading && (
+                <span className="ml-2 text-black/50">
+                  →
+                </span>
+              )}
+
             </button>
 
-          </div>
+          </form>
 
 
           {/* Bottom */}
+
           <div
             className="
               border-t
@@ -211,16 +361,20 @@ const SignIn = () => {
               text-center
             "
           >
+
             <p className="text-[11px] text-white/40">
+
               New to SHIRU?{' '}
 
               <Link
                 to="/signup"
-                className="font-medium text-white transition hover:text-white/70"
+                className="font-medium text-white hover:text-white/70"
               >
                 Create an account
               </Link>
+
             </p>
+
           </div>
 
         </div>
@@ -228,13 +382,11 @@ const SignIn = () => {
       </section>
 
 
-      {/* Bottom branding */}
       <div
         className="
           absolute
           bottom-7
           left-1/2
-          z-20
           -translate-x-1/2
           font-mono
           text-[8px]
@@ -243,7 +395,7 @@ const SignIn = () => {
           text-white/20
         "
       >
-        SHIRU · YOUR AI BUYER
+        SHIRU · AI COMMERCE LAYER
       </div>
 
     </main>
