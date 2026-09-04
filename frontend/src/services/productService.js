@@ -1,6 +1,18 @@
 const API_URL = "http://localhost:5000";
 
+// ======================================
+// AUTH HEADERS
+// ======================================
+
 const authHeaders = () => {
+  const token = localStorage.getItem("token");
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+const jsonAuthHeaders = () => {
   const token = localStorage.getItem("token");
 
   return {
@@ -9,11 +21,17 @@ const authHeaders = () => {
   };
 };
 
+// ======================================
+// RESPONSE HANDLER
+// ======================================
+
 const handle = async (response) => {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || "Something went wrong");
+    throw new Error(
+      data.message || "Something went wrong"
+    );
   }
 
   return data;
@@ -24,26 +42,41 @@ const handle = async (response) => {
 // ======================================
 
 export const getProducts = async () => {
-  const response = await fetch(`${API_URL}/api/products`);
+  const response = await fetch(
+    `${API_URL}/api/products`
+  );
+
   const data = await handle(response);
+
   return data.products;
 };
 
 export const searchProducts = async (params = {}) => {
   const query = new URLSearchParams(
     Object.fromEntries(
-      Object.entries(params).filter(([, v]) => v !== undefined && v !== "")
+      Object.entries(params).filter(
+        ([, value]) =>
+          value !== undefined && value !== ""
+      )
     )
   ).toString();
 
-  const response = await fetch(`${API_URL}/api/products/search?${query}`);
+  const response = await fetch(
+    `${API_URL}/api/products/search?${query}`
+  );
+
   const data = await handle(response);
+
   return data.products;
 };
 
 export const getProductById = async (id) => {
-  const response = await fetch(`${API_URL}/api/products/${id}`);
+  const response = await fetch(
+    `${API_URL}/api/products/${id}`
+  );
+
   const data = await handle(response);
+
   return data.product;
 };
 
@@ -52,37 +85,71 @@ export const getProductById = async (id) => {
 // ======================================
 
 export const getMerchantProducts = async () => {
-  const response = await fetch(`${API_URL}/api/products/merchant`, {
-    headers: authHeaders(),
-  });
+  const response = await fetch(
+    `${API_URL}/api/products/merchant`,
+    {
+      headers: authHeaders(),
+    }
+  );
+
   const data = await handle(response);
+
   return data.products;
 };
 
-export const createProduct = async (payload) => {
-  const response = await fetch(`${API_URL}/api/products`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify(payload),
-  });
+// ======================================
+// CREATE PRODUCT
+// ======================================
+
+export const createProduct = async (formData) => {
+  const response = await fetch(
+    `${API_URL}/api/products`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: formData,
+    }
+  );
+
   const data = await handle(response);
+
   return data.product;
 };
 
-export const updateProduct = async (id, payload) => {
-  const response = await fetch(`${API_URL}/api/products/${id}`, {
-    method: "PUT",
-    headers: authHeaders(),
-    body: JSON.stringify(payload),
-  });
+// ======================================
+// UPDATE PRODUCT
+// ======================================
+
+export const updateProduct = async (
+  id,
+  formData
+) => {
+  const response = await fetch(
+    `${API_URL}/api/products/${id}`,
+    {
+      method: "PUT",
+      headers: authHeaders(),
+      body: formData,
+    }
+  );
+
   const data = await handle(response);
+
   return data.product;
 };
+
+// ======================================
+// DELETE PRODUCT
+// ======================================
 
 export const deleteProduct = async (id) => {
-  const response = await fetch(`${API_URL}/api/products/${id}`, {
-    method: "DELETE",
-    headers: authHeaders(),
-  });
+  const response = await fetch(
+    `${API_URL}/api/products/${id}`,
+    {
+      method: "DELETE",
+      headers: jsonAuthHeaders(),
+    }
+  );
+
   return handle(response);
 };

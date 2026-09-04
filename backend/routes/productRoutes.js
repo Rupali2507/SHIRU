@@ -15,27 +15,13 @@ import {
   authorize,
 } from "../middleware/authMiddleware.js";
 
+import upload from "../middleware/uploadMiddleware.js";
+
 const router = express.Router();
 
+router.get("/", getProducts);
 
-// ======================================
-// PUBLIC PRODUCT APIs
-// ======================================
-
-router.get(
-  "/",
-  getProducts
-);
-
-router.get(
-  "/search",
-  searchProducts
-);
-
-
-// ======================================
-// MERCHANT PRODUCT APIs
-// ======================================
+router.get("/search", searchProducts);
 
 router.get(
   "/merchant",
@@ -48,6 +34,7 @@ router.post(
   "/",
   authenticate,
   authorize("MERCHANT"),
+  upload.array("images", 5),
   createProduct
 );
 
@@ -55,6 +42,7 @@ router.put(
   "/:id",
   authenticate,
   authorize("MERCHANT"),
+  upload.array("images", 5),
   updateProduct
 );
 
@@ -65,15 +53,6 @@ router.delete(
   deleteProduct
 );
 
-
-// ======================================
-// GET SINGLE PRODUCT
-// ======================================
-
-router.get(
-  "/:id",
-  getProductById
-);
-
+router.get("/:id", getProductById);
 
 export default router;

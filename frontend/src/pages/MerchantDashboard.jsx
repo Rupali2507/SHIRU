@@ -1,862 +1,762 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import DashboardNav from '../components/DashboardNav'
-import { getMerchantProfile, createMerchant } from '../services/merchantService'
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+import DashboardNav from "../components/DashboardNav";
+
+import {
+  getMerchantProfile,
+  createMerchant,
+} from "../services/merchantService";
+
 import {
   getMerchantProducts,
   createProduct,
   updateProduct,
   deleteProduct,
-} from '../services/productService'
-import { getMerchantOrders, updateOrderStatus } from '../services/orderService'
+} from "../services/productService";
+
+import {
+  getMerchantOrders,
+  updateOrderStatus,
+} from "../services/orderService";
+
+import MerchantStats from "../components/merchant/MerchantStats";
+import MerchantOverview from "../components/merchant/MerchantOverview";
+import MerchantCatalog from "../components/merchant/MerchantCatalog";
+import MerchantOrders from "../components/merchant/MerchantOrder";
+import ProductFormModal from "../components/merchant/ProductFormModal";
+
 
 const TABS = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'catalog', label: 'Catalog' },
-  { key: 'orders', label: 'Orders' },
-]
+  {
+    key: "overview",
+    label: "Overview",
+  },
+  {
+    key: "catalog",
+    label: "Catalog",
+  },
+  {
+    key: "orders",
+    label: "Orders",
+  },
+];
 
-const NEXT_STATUS = {
-  PAID: ['PROCESSING', 'CANCELLED'],
-  PROCESSING: ['SHIPPED', 'CANCELLED'],
-  SHIPPED: ['DELIVERED'],
-  DELIVERED: [],
-  CANCELLED: [],
-}
-
-const ORDER_STATUS_STYLES = {
-  PAID: 'text-emerald-400/80',
-  PROCESSING: 'text-amber-400/80',
-  SHIPPED: 'text-blue-400/80',
-  DELIVERED: 'text-emerald-400/80',
-  CANCELLED: 'text-red-400/80',
-}
-
-const EMPTY_PRODUCT = {
-  name: '',
-  description: '',
-  category: '',
-  brand: '',
-  price: '',
-  sku: '',
-  stock: '',
-  sizes: '',
-  colors: '',
-}
 
 const MerchantDashboard = () => {
+  const navigate = useNavigate();
 
-  const navigate = useNavigate()
+  const user = JSON.parse(
+    localStorage.getItem("user") || "null"
+  );
 
-  const user = JSON.parse(localStorage.getItem('user') || 'null')
-
-  // -------------------------
-  // Guard route
-  // -------------------------
+  // =====================================================
+  // AUTH GUARD
+  // =====================================================
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem("token");
 
-    if (!token || !user || user.role !== 'MERCHANT') {
-      navigate('/signin')
+    if (!token || !user || user.role !== "MERCHANT") {
+      navigate("/signin");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [navigate, user]);
 
-  const [activeTab, setActiveTab] = useState('overview')
 
-  // -------------------------
-  // Merchant profile
-  // -------------------------
+  // =====================================================
+  // TAB
+  // =====================================================
 
-  const [merchant, setMerchant] = useState(null)
-  const [profileLoading, setProfileLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("overview");
+
+
+  // =====================================================
+  // MERCHANT PROFILE
+  // =====================================================
+
+  const [merchant, setMerchant] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   const [storeForm, setStoreForm] = useState({
-    storeName: '',
-    description: '',
-    website: '',
-  })
-  const [storeLoading, setStoreLoading] = useState(false)
-  const [storeError, setStoreError] = useState('')
+    storeName: "",
+    description: "",
+    website: "",
+  });
+
+  const [storeLoading, setStoreLoading] = useState(false);
+  const [storeError, setStoreError] = useState("");
+
 
   const loadProfile = async () => {
     try {
-      setProfileLoading(true)
-      const data = await getMerchantProfile()
-      setMerchant(data)
+      setProfileLoading(true);
+
+      const data = await getMerchantProfile();
+
+      setMerchant(data);
+
+      if (data) {
+        setStoreForm({
+          storeName: data.storeName || "",
+          description: data.description || "",
+          website: data.website || "",
+        });
+      }
     } catch (error) {
-      console.error(error)
+      console.error(error);
     } finally {
-      setProfileLoading(false)
+      setProfileLoading(false);
     }
-  }
+  };
+
 
   useEffect(() => {
-    loadProfile()
-  }, [])
+    loadProfile();
+  }, []);
+
 
   const handleStoreChange = (e) => {
-    setStoreForm({ ...storeForm, [e.target.id]: e.target.value })
-  }
+    setStoreForm((prev) => ({
+      ...prev,
+      [e.target.id]: e.target.value,
+    }));
+  };
+
 
   const handleCreateStore = async (e) => {
-    e.preventDefault()
-    setStoreError('')
+    e.preventDefault();
 
-    if (!storeForm.storeName) {
-      setStoreError('Store name is required')
-      return
+    setStoreError("");
+
+    if (!storeForm.storeName.trim()) {
+      setStoreError("Store name is required");
+      return;
     }
 
     try {
-      setStoreLoading(true)
-      const created = await createMerchant(storeForm)
-      setMerchant(created)
+      setStoreLoading(true);
+
+      const created = await createMerchant(storeForm);
+
+      setMerchant(created);
     } catch (error) {
-      setStoreError(error.message || 'Unable to create store')
+      setStoreError(
+        error.message || "Unable to create store"
+      );
     } finally {
-      setStoreLoading(false)
+      setStoreLoading(false);
     }
-  }
+  };
 
-  // -------------------------
-  // Products
-  // -------------------------
 
-  const [products, setProducts] = useState([])
-  const [productsLoading, setProductsLoading] = useState(false)
-  const [productsError, setProductsError] = useState('')
+  // =====================================================
+  // PRODUCTS
+  // =====================================================
+
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsError, setProductsError] = useState("");
+
 
   const loadProducts = async () => {
     try {
-      setProductsLoading(true)
-      setProductsError('')
-      const data = await getMerchantProducts()
-      setProducts(data)
+      setProductsLoading(true);
+      setProductsError("");
+
+      const data = await getMerchantProducts();
+
+      setProducts(data || []);
     } catch (error) {
-      setProductsError(error.message || 'Unable to load products')
+      setProductsError(
+        error.message || "Unable to load products"
+      );
     } finally {
-      setProductsLoading(false)
+      setProductsLoading(false);
     }
-  }
+  };
+
 
   useEffect(() => {
-    if (merchant && (activeTab === 'catalog' || activeTab === 'overview')) {
-      loadProducts()
+    if (
+      merchant &&
+      (activeTab === "overview" ||
+        activeTab === "catalog")
+    ) {
+      loadProducts();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [merchant, activeTab])
+  }, [merchant, activeTab]);
 
-  const [showProductForm, setShowProductForm] = useState(false)
-  const [editingProductId, setEditingProductId] = useState(null)
-  const [productForm, setProductForm] = useState(EMPTY_PRODUCT)
-  const [productFormLoading, setProductFormLoading] = useState(false)
-  const [productFormError, setProductFormError] = useState('')
+
+  // =====================================================
+  // PRODUCT FORM
+  // =====================================================
+
+  const [showProductForm, setShowProductForm] =
+    useState(false);
+
+  const [editingProduct, setEditingProduct] =
+    useState(null);
+
+  const [productFormLoading, setProductFormLoading] =
+    useState(false);
+
+  const [productFormError, setProductFormError] =
+    useState("");
+
 
   const openNewProductForm = () => {
-    setEditingProductId(null)
-    setProductForm(EMPTY_PRODUCT)
-    setProductFormError('')
-    setShowProductForm(true)
-  }
+    setEditingProduct(null);
+    setProductFormError("");
+    setShowProductForm(true);
+  };
+
 
   const openEditProductForm = (product) => {
-    setEditingProductId(product._id)
-    setProductForm({
-      name: product.name,
-      description: product.description,
-      category: product.category,
-      brand: product.brand || '',
-      price: product.price,
-      sku: product.sku,
-      stock: product.stock,
-      sizes: (product.sizes || []).join(', '),
-      colors: (product.colors || []).join(', '),
-    })
-    setProductFormError('')
-    setShowProductForm(true)
-  }
+    setEditingProduct(product);
+    setProductFormError("");
+    setShowProductForm(true);
+  };
+
 
   const closeProductForm = () => {
-    setShowProductForm(false)
-    setEditingProductId(null)
-  }
+    if (productFormLoading) return;
 
-  const handleProductFormChange = (e) => {
-    setProductForm({ ...productForm, [e.target.id]: e.target.value })
-  }
+    setShowProductForm(false);
+    setEditingProduct(null);
+    setProductFormError("");
+  };
 
-  const handleSaveProduct = async (e) => {
-    e.preventDefault()
-    setProductFormError('')
 
-    if (!productForm.name || !productForm.description || !productForm.category || !productForm.price || !productForm.sku) {
-      setProductFormError('Name, description, category, price and SKU are required')
-      return
+  // =====================================================
+  // SAVE PRODUCT
+  // =====================================================
+
+  const handleSaveProduct = async (form) => {
+    setProductFormError("");
+
+    // Basic validation
+    if (
+      !form.name?.trim() ||
+      !form.description?.trim() ||
+      !form.category?.trim() ||
+      !form.price ||
+      !form.sku?.trim()
+    ) {
+      setProductFormError(
+        "Name, description, category, price and SKU are required"
+      );
+
+      return;
     }
 
-    const payload = {
-      name: productForm.name,
-      description: productForm.description,
-      category: productForm.category,
-      brand: productForm.brand,
-      price: Number(productForm.price),
-      sku: productForm.sku,
-      stock: Number(productForm.stock) || 0,
-      sizes: productForm.sizes
-        ? productForm.sizes.split(',').map((s) => s.trim()).filter(Boolean)
-        : [],
-      colors: productForm.colors
-        ? productForm.colors.split(',').map((c) => c.trim()).filter(Boolean)
-        : [],
-    }
 
     try {
-      setProductFormLoading(true)
+      setProductFormLoading(true);
 
-      if (editingProductId) {
-        await updateProduct(editingProductId, payload)
-      } else {
-        await createProduct(payload)
+
+      // -------------------------------------------------
+      // FormData
+      // -------------------------------------------------
+
+      const formData = new FormData();
+
+      formData.append(
+        "name",
+        form.name.trim()
+      );
+
+      formData.append(
+        "description",
+        form.description.trim()
+      );
+
+      formData.append(
+        "category",
+        form.category.trim()
+      );
+
+      formData.append(
+        "brand",
+        form.brand?.trim() || ""
+      );
+
+      formData.append(
+        "price",
+        String(Number(form.price))
+      );
+
+      formData.append(
+        "sku",
+        form.sku.trim()
+      );
+
+      formData.append(
+        "stock",
+        String(Number(form.stock) || 0)
+      );
+
+
+      // -------------------------------------------------
+      // Arrays
+      // -------------------------------------------------
+
+      // -------------------------------------------------
+// Arrays
+// -------------------------------------------------
+
+const sizes = Array.isArray(form.sizes)
+  ? form.sizes
+  : [];
+
+const colors = Array.isArray(form.colors)
+  ? form.colors
+  : [];
+
+formData.append(
+  "sizes",
+  JSON.stringify(sizes)
+);
+
+formData.append(
+  "colors",
+  JSON.stringify(colors)
+);
+
+
+      // -------------------------------------------------
+      // Images
+      // -------------------------------------------------
+
+      if (form.images?.length > 0) {
+        form.images.forEach((file) => {
+          formData.append("images", file);
+        });
       }
 
-      closeProductForm()
-      loadProducts()
+
+      // -------------------------------------------------
+      // CREATE / UPDATE
+      // -------------------------------------------------
+
+      if (editingProduct?._id) {
+        await updateProduct(
+          editingProduct._id,
+          formData
+        );
+      } else {
+        await createProduct(formData);
+      }
+
+
+      // -------------------------------------------------
+      // Refresh
+      // -------------------------------------------------
+
+      closeProductForm();
+
+      await loadProducts();
 
     } catch (error) {
-      setProductFormError(error.message || 'Unable to save product')
+      setProductFormError(
+        error.message || "Unable to save product"
+      );
     } finally {
-      setProductFormLoading(false)
+      setProductFormLoading(false);
     }
-  }
+  };
+
+
+  // =====================================================
+  // DELETE PRODUCT
+  // =====================================================
 
   const handleDeleteProduct = async (id) => {
+    const confirmed = window.confirm(
+      "Remove this product from your catalog?"
+    );
+
+    if (!confirmed) return;
+
     try {
-      await deleteProduct(id)
-      loadProducts()
+      await deleteProduct(id);
+
+      await loadProducts();
     } catch (error) {
-      console.error(error)
+      console.error(error);
+
+      setProductsError(
+        error.message || "Unable to remove product"
+      );
     }
-  }
+  };
 
-  // -------------------------
-  // Orders
-  // -------------------------
 
-  const [orders, setOrders] = useState([])
-  const [ordersLoading, setOrdersLoading] = useState(false)
-  const [ordersError, setOrdersError] = useState('')
+  // =====================================================
+  // ORDERS
+  // =====================================================
+
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] =
+    useState(false);
+  const [ordersError, setOrdersError] =
+    useState("");
+
 
   const loadOrders = async () => {
     try {
-      setOrdersLoading(true)
-      setOrdersError('')
-      const data = await getMerchantOrders()
-      setOrders(data)
+      setOrdersLoading(true);
+      setOrdersError("");
+
+      const data = await getMerchantOrders();
+
+      setOrders(data || []);
     } catch (error) {
-      setOrdersError(error.message || 'Unable to load orders')
+      setOrdersError(
+        error.message || "Unable to load orders"
+      );
     } finally {
-      setOrdersLoading(false)
+      setOrdersLoading(false);
     }
-  }
+  };
+
 
   useEffect(() => {
-    if (merchant && activeTab === 'orders') {
-      loadOrders()
+    if (
+      merchant &&
+      (activeTab === "overview" ||
+        activeTab === "orders")
+    ) {
+      loadOrders();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [merchant, activeTab])
+  }, [merchant, activeTab]);
 
-  const handleStatusChange = async (orderId, status) => {
+
+  // =====================================================
+  // UPDATE ORDER STATUS
+  // =====================================================
+
+  const handleOrderStatusChange = async (
+    orderId,
+    status
+  ) => {
     try {
-      await updateOrderStatus(orderId, status)
-      loadOrders()
-    } catch (error) {
-      console.error(error)
-    }
-  }
+      await updateOrderStatus(
+        orderId,
+        status
+      );
 
-  // -------------------------
-  // Stats
-  // -------------------------
+      await loadOrders();
+    } catch (error) {
+      console.error(error);
+
+      setOrdersError(
+        error.message ||
+          "Unable to update order status"
+      );
+    }
+  };
+
+
+  // =====================================================
+  // STATS
+  // =====================================================
 
   const stats = useMemo(() => {
-    const activeProducts = products.filter((p) => p.status === 'ACTIVE').length
+    const totalProducts = products.length;
+
+    const activeProducts = products.filter(
+      (product) =>
+        product.status === "ACTIVE" &&
+        product.aiEnabled !== false
+    ).length;
+
+    const totalOrders = orders.filter(
+      (order) => order.status !== "CANCELLED"
+    ).length;
 
     const revenue = orders
-      .filter((o) => ['PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED'].includes(o.status))
-      .reduce((sum, o) => sum + o.totalAmount, 0)
+      .filter(
+        (order) =>
+          order.status !== "CANCELLED"
+      )
+      .reduce(
+        (total, order) =>
+          total +
+          Number(order.totalAmount || 0),
+        0
+      );
 
     return {
-      totalProducts: products.length,
+      totalProducts,
       activeProducts,
-      totalOrders: orders.length,
+      totalOrders,
       revenue,
-    }
-  }, [products, orders])
+    };
+  }, [products, orders]);
 
-  // -------------------------
-  // Loading state
-  // -------------------------
+
+  // =====================================================
+  // LOADING PROFILE
+  // =====================================================
 
   if (profileLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        <p className="text-[12px] text-white/30">Loading your store...</p>
-      </main>
-    )
+      <div className="min-h-screen bg-[#0b0b0b] text-white">
+        <DashboardNav />
+
+        <div className="flex min-h-[70vh] items-center justify-center">
+          <p className="text-[12px] text-white/30">
+            Loading merchant dashboard...
+          </p>
+        </div>
+      </div>
+    );
   }
 
-  // -------------------------
-  // No store yet — onboarding
-  // -------------------------
+
+  // =====================================================
+  // CREATE STORE
+  // =====================================================
 
   if (!merchant) {
     return (
-      <main className="relative min-h-screen overflow-hidden bg-black text-white">
+      <div className="min-h-screen bg-[#0b0b0b] text-white">
+        <DashboardNav />
 
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.035),transparent_55%)]" />
+        <main className="mx-auto max-w-3xl px-6 py-16">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#111111] p-8">
+            <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/30">
+              Merchant onboarding
+            </p>
 
-        <DashboardNav eyebrow="Merchant onboarding" />
+            <h1 className="mt-3 text-2xl font-medium">
+              Create your store
+            </h1>
 
-        <section className="relative z-10 flex min-h-screen items-center justify-center px-6 pt-[72px]">
+            <p className="mt-2 text-[12px] text-white/40">
+              Connect your catalog to SHIRU so AI
+              buyers can discover your products.
+            </p>
 
-          <div className="w-full max-w-[420px] overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#0b0b0b]/95 shadow-2xl backdrop-blur-xl">
 
-            <form onSubmit={handleCreateStore} className="px-9 pb-8 pt-9">
+            <form
+              onSubmit={handleCreateStore}
+              className="mt-8 space-y-4"
+            >
+              <input
+                id="storeName"
+                value={storeForm.storeName}
+                onChange={handleStoreChange}
+                placeholder="Store name"
+                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/25"
+                required
+              />
 
-              <div className="mb-5 text-center text-lg text-white/70">✦</div>
+              <textarea
+                id="description"
+                value={storeForm.description}
+                onChange={handleStoreChange}
+                placeholder="Tell buyers what your store sells..."
+                rows={4}
+                className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/25"
+              />
 
-              <h1 className="text-center text-[19px] font-medium">
-                Set up your store
-              </h1>
-
-              <p className="mt-2 text-center text-[12px] text-white/40">
-                Make your catalog AI-transactable for SHIRU buyers.
-              </p>
-
-              <div className="mt-7">
-                <label htmlFor="storeName" className="mb-2 block text-[11px] text-white/70">
-                  Store name
-                </label>
-                <input
-                  id="storeName"
-                  value={storeForm.storeName}
-                  onChange={handleStoreChange}
-                  placeholder="e.g. Puma Official"
-                  className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                />
-              </div>
-
-              <div className="mt-5">
-                <label htmlFor="description" className="mb-2 block text-[11px] text-white/70">
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  rows={3}
-                  value={storeForm.description}
-                  onChange={handleStoreChange}
-                  placeholder="What does your store sell?"
-                  className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                />
-              </div>
-
-              <div className="mt-5">
-                <label htmlFor="website" className="mb-2 block text-[11px] text-white/70">
-                  Website (optional)
-                </label>
-                <input
-                  id="website"
-                  value={storeForm.website}
-                  onChange={handleStoreChange}
-                  placeholder="https://yourstore.com"
-                  className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                />
-              </div>
+              <input
+                id="website"
+                value={storeForm.website}
+                onChange={handleStoreChange}
+                placeholder="Website (optional)"
+                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/25"
+              />
 
               {storeError && (
-                <p className="mt-4 text-center text-[11px] text-red-400">{storeError}</p>
+                <p className="text-[11px] text-red-400">
+                  {storeError}
+                </p>
               )}
 
               <button
                 type="submit"
                 disabled={storeLoading}
-                className="mt-7 w-full rounded-lg bg-white px-4 py-3 text-[12px] font-medium text-black transition-all hover:scale-[1.01] hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-full bg-white px-6 py-3 text-[11px] font-medium text-black transition hover:bg-white/90 disabled:opacity-50"
               >
-                {storeLoading ? 'Creating store...' : 'Create store'}
+                {storeLoading
+                  ? "Creating..."
+                  : "Create store"}
               </button>
-
             </form>
-
           </div>
-
-        </section>
-
-      </main>
-    )
+        </main>
+      </div>
+    );
   }
 
-  // -------------------------
-  // Merchant portal
-  // -------------------------
+
+  // =====================================================
+  // MAIN DASHBOARD
+  // =====================================================
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#0b0b0b] text-white">
 
-      <DashboardNav
-        tabs={TABS}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        eyebrow={merchant.storeName}
-      />
+      <DashboardNav />
 
-      <div className="mx-auto max-w-[1500px] px-6 pb-16 pt-[120px] lg:px-10">
 
-        {/* Header */}
+      <main className="mx-auto max-w-6xl px-6 pb-16 pt-24">
 
-        <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+        {/* ================================================= */}
+        {/* HEADER */}
+        {/* ================================================= */}
+
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
 
           <div>
-            <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/30">
-              Merchant control
+            <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/30">
+              Merchant workspace
             </p>
-            <h1 className="mt-3 text-[38px] font-medium tracking-[-0.05em] md:text-[46px]">
+
+            <h1 className="mt-2 text-3xl font-medium tracking-[-0.04em]">
               {merchant.storeName}
             </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-white/40">
-              SHIRU helps AI buyers discover your products, make decisions
-              and complete purchases.
+
+            <p className="mt-2 max-w-xl text-[12px] text-white/35">
+              Manage your catalog, orders and
+              AI-ready commerce presence.
             </p>
           </div>
+
+
+          {/* Store status */}
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2">
+
+            <span className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-white/40">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/50">
-                {merchant.status === 'ACTIVE' ? 'Live' : merchant.status}
+              {merchant.status || "ACTIVE"}
+            </span>
+
+            {merchant.aiEnabled !== false && (
+              <span className="rounded-full border border-white/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-white/40">
+                AI READY
               </span>
-            </div>
+            )}
+
           </div>
 
         </div>
 
-        {/* Stats */}
 
-        <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {/* ================================================= */}
+        {/* TABS */}
+        {/* ================================================= */}
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111111] p-6">
-            <p className="text-[11px] text-white/35">Total products</p>
-            <p className="mt-4 text-[26px] font-medium tracking-[-0.04em]">
-              {stats.totalProducts}
-            </p>
-          </div>
+        <div className="mt-8 flex gap-6 border-b border-white/[0.07]">
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111111] p-6">
-            <p className="text-[11px] text-white/35">Active products</p>
-            <p className="mt-4 text-[26px] font-medium tracking-[-0.04em]">
-              {stats.activeProducts}
-            </p>
-          </div>
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() =>
+                setActiveTab(tab.key)
+              }
+              className={`
+                relative pb-4 text-[11px] transition
+                ${
+                  activeTab === tab.key
+                    ? "text-white"
+                    : "text-white/35 hover:text-white/70"
+                }
+              `}
+            >
+              {tab.label}
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111111] p-6">
-            <p className="text-[11px] text-white/35">Orders</p>
-            <p className="mt-4 text-[26px] font-medium tracking-[-0.04em]">
-              {stats.totalOrders}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111111] p-6">
-            <p className="text-[11px] text-white/35">Revenue</p>
-            <p className="mt-4 text-[26px] font-medium tracking-[-0.04em]">
-              ₹{stats.revenue.toLocaleString('en-IN')}
-            </p>
-          </div>
+              {activeTab === tab.key && (
+                <span className="absolute bottom-[-1px] left-0 h-px w-full bg-white" />
+              )}
+            </button>
+          ))}
 
         </div>
 
-        {/* ============================================= */}
-        {/* OVERVIEW TAB */}
-        {/* ============================================= */}
 
-        {activeTab === 'overview' && (
-          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {/* ================================================= */}
+        {/* OVERVIEW */}
+        {/* ================================================= */}
 
-            <div className="rounded-2xl border border-white/[0.08] bg-[#111111] p-7">
+        {activeTab === "overview" && (
+          <>
+            <MerchantStats stats={stats} />
 
-              <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/30">
-                Agent-readable catalog
-              </p>
-              <h2 className="mt-3 text-2xl font-medium tracking-[-0.04em]">
-                Ready for AI buyers.
-              </h2>
-
-              <div className="mt-8 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-white/[0.06] bg-black/30 p-4">
-                  <p className="text-lg font-medium">{stats.activeProducts}</p>
-                  <p className="mt-1 text-[9px] text-white/30">AI-ready products</p>
-                </div>
-                <div className="rounded-xl border border-white/[0.06] bg-black/30 p-4">
-                  <p className="text-lg font-medium">
-                    {stats.totalProducts - stats.activeProducts}
-                  </p>
-                  <p className="mt-1 text-[9px] text-white/30">Need attention</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setActiveTab('catalog')}
-                className="mt-6 rounded-full border border-white/10 px-5 py-2.5 text-[10px] text-white/60 transition hover:border-white/20 hover:text-white"
-              >
-                Manage catalog →
-              </button>
-
-            </div>
-
-            <div className="rounded-2xl border border-white/[0.08] bg-[#111111] p-7">
-
-              <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/30">
-                Recent orders
-              </p>
-              <h2 className="mt-3 text-2xl font-medium tracking-[-0.04em]">
-                What's coming in.
-              </h2>
-
-              {orders.length === 0 ? (
-                <p className="mt-8 text-[12px] text-white/35">
-                  No orders yet.
-                </p>
-              ) : (
-                <div className="mt-6 space-y-3">
-                  {orders.slice(0, 3).map((order) => (
-                    <div key={order._id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-black/30 px-4 py-3">
-                      <p className="text-[11px] text-white/70">
-                        {order.items?.[0]?.name}{order.items.length > 1 ? ` +${order.items.length - 1}` : ''}
-                      </p>
-                      <span className={`font-mono text-[9px] uppercase tracking-[0.2em] ${ORDER_STATUS_STYLES[order.status] || 'text-white/40'}`}>
-                        {order.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <button
-                onClick={() => setActiveTab('orders')}
-                className="mt-6 rounded-full border border-white/10 px-5 py-2.5 text-[10px] text-white/60 transition hover:border-white/20 hover:text-white"
-              >
-                View all orders →
-              </button>
-
-            </div>
-
-          </div>
+            <MerchantOverview
+              stats={stats}
+              orders={orders}
+              onManageCatalog={() =>
+                setActiveTab("catalog")
+              }
+              onViewOrders={() =>
+                setActiveTab("orders")
+              }
+            />
+          </>
         )}
 
-        {/* ============================================= */}
-        {/* CATALOG TAB */}
-        {/* ============================================= */}
 
-        {activeTab === 'catalog' && (
-          <div className="mt-10">
+        {/* ================================================= */}
+        {/* CATALOG */}
+        {/* ================================================= */}
 
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">Your products</h2>
-              <button
-                onClick={openNewProductForm}
-                className="rounded-full bg-white px-5 py-2.5 text-[11px] font-medium text-black transition hover:bg-white/90"
-              >
-                + Add product
-              </button>
-            </div>
-
-            <div className="mt-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111111]">
-
-              {productsLoading && (
-                <p className="px-7 py-10 text-center text-[12px] text-white/30">
-                  Loading products...
-                </p>
-              )}
-
-              {!productsLoading && productsError && (
-                <p className="px-7 py-10 text-center text-[12px] text-red-400">
-                  {productsError}
-                </p>
-              )}
-
-              {!productsLoading && !productsError && products.length === 0 && (
-                <p className="px-7 py-10 text-center text-[12px] text-white/30">
-                  No products yet. Add your first one.
-                </p>
-              )}
-
-              {!productsLoading && !productsError && products.map((product, index) => (
-                <div
-                  key={product._id}
-                  className={`
-                    flex flex-col gap-3 px-7 py-5 sm:flex-row sm:items-center sm:justify-between
-                    ${index !== products.length - 1 ? 'border-b border-white/[0.05]' : ''}
-                  `}
-                >
-
-                  <div>
-                    <p className="text-[13px] text-white/85">{product.name}</p>
-                    <p className="mt-1 text-[10px] text-white/30">
-                      {product.category} · SKU {product.sku} · Stock {product.stock}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-5">
-
-                    <p className="text-[12px] text-white/60">
-                      ₹{product.price.toLocaleString('en-IN')}
-                    </p>
-
-                    <span className={`font-mono text-[9px] uppercase tracking-[0.2em] ${product.status === 'ACTIVE' ? 'text-emerald-400/80' : 'text-white/30'}`}>
-                      {product.status}
-                    </span>
-
-                    <button
-                      onClick={() => openEditProductForm(product)}
-                      className="text-[10px] text-white/50 hover:text-white"
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      onClick={() => handleDeleteProduct(product._id)}
-                      className="text-[10px] text-white/50 hover:text-red-400"
-                    >
-                      Remove
-                    </button>
-
-                  </div>
-
-                </div>
-              ))}
-
-            </div>
-
-          </div>
+        {activeTab === "catalog" && (
+          <MerchantCatalog
+            products={products}
+            loading={productsLoading}
+            error={productsError}
+            onAddProduct={
+              openNewProductForm
+            }
+            onEditProduct={
+              openEditProductForm
+            }
+            onDeleteProduct={
+              handleDeleteProduct
+            }
+          />
         )}
 
-        {/* ============================================= */}
-        {/* ORDERS TAB */}
-        {/* ============================================= */}
 
-        {activeTab === 'orders' && (
-          <div className="mt-10 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111111]">
+        {/* ================================================= */}
+        {/* ORDERS */}
+        {/* ================================================= */}
 
-            {ordersLoading && (
-              <p className="px-7 py-10 text-center text-[12px] text-white/30">
-                Loading orders...
-              </p>
-            )}
-
-            {!ordersLoading && ordersError && (
-              <p className="px-7 py-10 text-center text-[12px] text-red-400">
-                {ordersError}
-              </p>
-            )}
-
-            {!ordersLoading && !ordersError && orders.length === 0 && (
-              <p className="px-7 py-10 text-center text-[12px] text-white/30">
-                No orders yet.
-              </p>
-            )}
-
-            {!ordersLoading && !ordersError && orders.map((order, index) => {
-              const nextOptions = NEXT_STATUS[order.status] || []
-
-              return (
-                <div
-                  key={order._id}
-                  className={`
-                    flex flex-col gap-3 px-7 py-5 sm:flex-row sm:items-center sm:justify-between
-                    ${index !== orders.length - 1 ? 'border-b border-white/[0.05]' : ''}
-                  `}
-                >
-
-                  <div>
-                    <p className="text-[12px] text-white/80">
-                      {order.items.map((item) => item.name).join(', ')}
-                    </p>
-                    <p className="mt-1 text-[10px] text-white/30">
-                      {order.user?.name || 'Customer'} ·{' '}
-                      {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-5">
-
-                    <p className="text-[12px] text-white/60">
-                      ₹{order.totalAmount.toLocaleString('en-IN')}
-                    </p>
-
-                    <span className={`font-mono text-[9px] uppercase tracking-[0.2em] ${ORDER_STATUS_STYLES[order.status] || 'text-white/40'}`}>
-                      {order.status}
-                    </span>
-
-                    {nextOptions.length > 0 && (
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            handleStatusChange(order._id, e.target.value)
-                          }
-                        }}
-                        defaultValue=""
-                        className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[10px] text-white outline-none"
-                      >
-                        <option value="" disabled>
-                          Update status
-                        </option>
-                        {nextOptions.map((status) => (
-                          <option key={status} value={status} className="bg-black">
-                            {status}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-
-                  </div>
-
-                </div>
-              )
-            })}
-
-          </div>
+        {activeTab === "orders" && (
+          <MerchantOrders
+            orders={orders}
+            loading={ordersLoading}
+            error={ordersError}
+            onStatusChange={
+              handleOrderStatusChange
+            }
+          />
         )}
 
-      </div>
+      </main>
 
-      {/* ============================================= */}
-      {/* PRODUCT FORM MODAL */}
-      {/* ============================================= */}
 
-      {showProductForm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm">
+      {/* ================================================= */}
+      {/* PRODUCT MODAL */}
+      {/* ================================================= */}
 
-          <div className="max-h-[88vh] w-full max-w-[440px] overflow-y-auto rounded-[22px] border border-white/[0.08] bg-[#0b0b0b]/95 shadow-2xl backdrop-blur-xl">
+      <ProductFormModal
+        isOpen={showProductForm}
+        editingProduct={editingProduct}
+        loading={productFormLoading}
+        error={productFormError}
+        onClose={closeProductForm}
+        onSubmit={handleSaveProduct}
+        onImagesChange={() => {}}
+      />
 
-            <form onSubmit={handleSaveProduct} className="px-8 pb-8 pt-8">
+    </div>
+  );
+};
 
-              <div className="flex items-start justify-between">
-                <h2 className="text-[18px] font-medium">
-                  {editingProductId ? 'Edit product' : 'Add product'}
-                </h2>
-                <button type="button" onClick={closeProductForm} className="text-lg text-white/40 hover:text-white">
-                  ×
-                </button>
-              </div>
 
-              <div className="mt-6 space-y-3">
-
-                <input
-                  id="name"
-                  value={productForm.name}
-                  onChange={handleProductFormChange}
-                  placeholder="Product name"
-                  className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                />
-
-                <textarea
-                  id="description"
-                  rows={3}
-                  value={productForm.description}
-                  onChange={handleProductFormChange}
-                  placeholder="Description"
-                  className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                />
-
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    id="category"
-                    value={productForm.category}
-                    onChange={handleProductFormChange}
-                    placeholder="Category"
-                    className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                  />
-                  <input
-                    id="brand"
-                    value={productForm.brand}
-                    onChange={handleProductFormChange}
-                    placeholder="Brand"
-                    className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    id="price"
-                    type="number"
-                    value={productForm.price}
-                    onChange={handleProductFormChange}
-                    placeholder="Price (₹)"
-                    className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                  />
-                  <input
-                    id="stock"
-                    type="number"
-                    value={productForm.stock}
-                    onChange={handleProductFormChange}
-                    placeholder="Stock"
-                    className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                  />
-                </div>
-
-                <input
-                  id="sku"
-                  value={productForm.sku}
-                  onChange={handleProductFormChange}
-                  placeholder="SKU"
-                  disabled={!!editingProductId}
-                  className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30 disabled:opacity-40"
-                />
-
-                <input
-                  id="sizes"
-                  value={productForm.sizes}
-                  onChange={handleProductFormChange}
-                  placeholder="Sizes (comma separated, optional)"
-                  className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                />
-
-                <input
-                  id="colors"
-                  value={productForm.colors}
-                  onChange={handleProductFormChange}
-                  placeholder="Colors (comma separated, optional)"
-                  className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] text-white outline-none placeholder:text-white/25 focus:border-white/30"
-                />
-
-              </div>
-
-              {productFormError && (
-                <p className="mt-4 text-center text-[11px] text-red-400">{productFormError}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={productFormLoading}
-                className="mt-6 w-full rounded-lg bg-white px-4 py-3 text-[12px] font-medium text-black transition-all hover:scale-[1.01] hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {productFormLoading ? 'Saving...' : editingProductId ? 'Save changes' : 'Add product'}
-              </button>
-
-            </form>
-
-          </div>
-
-        </div>
-      )}
-
-    </main>
-  )
-}
-
-export default MerchantDashboard
+export default MerchantDashboard;

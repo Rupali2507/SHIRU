@@ -1,7 +1,7 @@
 import React, { useRef } from 'react'
 import Navbar from '../components/Navbar'
 import ShiruParticles from '../components/ShiruPaticles.jsx'
-import { Link } from 'react-router-dom'
+
 import ShiruFeatures from '../components/ShiruFeatures'
 import ShiruHowItWorks from '../components/ShiruHowItWorks'
 import Footer from '../components/Footer.jsx'
@@ -130,7 +130,7 @@ const Home = () => {
             "
           >
 
-            <Link to='/signup'
+            <button
               className="
                 rounded-full
                 bg-white
@@ -146,7 +146,7 @@ const Home = () => {
               "
             >
               Start shopping with SHIRU
-            </Link>
+            </button>
 
 
             <button

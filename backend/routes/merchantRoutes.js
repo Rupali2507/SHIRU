@@ -3,6 +3,7 @@ import express from "express";
 import {
   createMerchant,
   getMerchantProfile,
+  getMerchants
 } from "../controller/merchantController.js";
 
 import {
@@ -22,7 +23,7 @@ router.post(
   createMerchant
 );
 
-
+router.get("/", getMerchants);
 
 router.get(
   "/me",

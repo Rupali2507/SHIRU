@@ -1,13 +1,32 @@
 import Product from "../models/Product.js";
 import Merchant from "../models/Merchant.js";
 
+import upload from "../middleware/uploadMiddleware.js";
 
-
+import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 
 export const createProduct = async (req, res) => {
   try {
-
     const userId = req.user.userId;
+
+    // ======================================
+    // FIND MERCHANT
+    // ======================================
+
+    const merchant = await Merchant.findOne({
+      owner: userId,
+    });
+
+    if (!merchant) {
+      return res.status(404).json({
+        success: false,
+        message: "Merchant store not found",
+      });
+    }
+
+    // ======================================
+    // GET BODY DATA
+    // ======================================
 
     const {
       name,
@@ -20,11 +39,12 @@ export const createProduct = async (req, res) => {
       stock,
       sizes,
       colors,
-      images,
       aiMetadata,
     } = req.body;
 
-
+    // ======================================
+    // VALIDATION
+    // ======================================
 
     if (
       !name ||
@@ -40,22 +60,9 @@ export const createProduct = async (req, res) => {
       });
     }
 
-
-   
-
-    const merchant = await Merchant.findOne({
-      owner: userId,
-    });
-
-    if (!merchant) {
-      return res.status(404).json({
-        success: false,
-        message: "Merchant store not found",
-      });
-    }
-
-
-  
+    // ======================================
+    // CHECK SKU
+    // ======================================
 
     const existingProduct = await Product.findOne({
       sku,
@@ -68,10 +75,64 @@ export const createProduct = async (req, res) => {
       });
     }
 
+    // ======================================
+    // UPLOAD IMAGES TO CLOUDINARY
+    // ======================================
 
+    const imageUrls = [];
+
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const result = await uploadToCloudinary(
+          file.buffer,
+          "shiru/products"
+        );
+
+        imageUrls.push(result.secure_url);
+      }
+    }
+
+    // ======================================
+    // PARSE ARRAYS
+    // ======================================
+
+    let parsedSizes = [];
+    let parsedColors = [];
+    let parsedAiMetadata = {};
+
+    try {
+      if (sizes) {
+        parsedSizes =
+          typeof sizes === "string"
+            ? JSON.parse(sizes)
+            : sizes;
+      }
+
+      if (colors) {
+        parsedColors =
+          typeof colors === "string"
+            ? JSON.parse(colors)
+            : colors;
+      }
+
+      if (aiMetadata) {
+        parsedAiMetadata =
+          typeof aiMetadata === "string"
+            ? JSON.parse(aiMetadata)
+            : aiMetadata;
+      }
+    } catch (parseError) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product data format",
+      });
+    }
+
+    // ======================================
+    // CREATE PRODUCT
+    // ======================================
 
     const product = await Product.create({
-
       merchant: merchant._id,
 
       name,
@@ -85,28 +146,29 @@ export const createProduct = async (req, res) => {
       sku,
       stock: stock ?? 0,
 
-      sizes: sizes || [],
-      colors: colors || [],
-      images: images || [],
+      sizes: parsedSizes,
+      colors: parsedColors,
 
-      aiMetadata: aiMetadata || {},
+      // IMPORTANT
+      images: imageUrls,
+
+      aiMetadata: parsedAiMetadata,
 
       aiEnabled: true,
       status: "ACTIVE",
     });
 
+    // ======================================
+    // RESPONSE
+    // ======================================
 
     return res.status(201).json({
-
       success: true,
-
       message: "Product created successfully",
-
       product,
     });
 
   } catch (error) {
-
     console.error("Create product error:", error);
 
     return res.status(500).json({
@@ -403,6 +465,10 @@ export const updateProduct = async (req, res) => {
     const userId = req.user.userId;
     const { id } = req.params;
 
+    // ======================================
+    // FIND MERCHANT
+    // ======================================
+
     const merchant = await Merchant.findOne({
       owner: userId,
     });
@@ -413,6 +479,10 @@ export const updateProduct = async (req, res) => {
         message: "Merchant profile not found",
       });
     }
+
+    // ======================================
+    // FIND PRODUCT
+    // ======================================
 
     const product = await Product.findOne({
       _id: id,
@@ -426,6 +496,10 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+    // ======================================
+    // UPDATE BASIC FIELDS
+    // ======================================
+
     const allowedFields = [
       "name",
       "description",
@@ -434,10 +508,6 @@ export const updateProduct = async (req, res) => {
       "price",
       "currency",
       "stock",
-      "sizes",
-      "colors",
-      "images",
-      "aiMetadata",
       "aiEnabled",
       "status",
     ];
@@ -447,6 +517,66 @@ export const updateProduct = async (req, res) => {
         product[field] = req.body[field];
       }
     }
+
+    // ======================================
+    // PARSE SIZES
+    // ======================================
+
+    if (req.body.sizes !== undefined) {
+      product.sizes =
+        typeof req.body.sizes === "string"
+          ? JSON.parse(req.body.sizes)
+          : req.body.sizes;
+    }
+
+    // ======================================
+    // PARSE COLORS
+    // ======================================
+
+    if (req.body.colors !== undefined) {
+      product.colors =
+        typeof req.body.colors === "string"
+          ? JSON.parse(req.body.colors)
+          : req.body.colors;
+    }
+
+    // ======================================
+    // PARSE AI METADATA
+    // ======================================
+
+    if (req.body.aiMetadata !== undefined) {
+      product.aiMetadata =
+        typeof req.body.aiMetadata === "string"
+          ? JSON.parse(req.body.aiMetadata)
+          : req.body.aiMetadata;
+    }
+
+    // ======================================
+    // UPLOAD NEW IMAGES
+    // ======================================
+
+    if (req.files && req.files.length > 0) {
+      const newImageUrls = [];
+
+      for (const file of req.files) {
+        const result = await uploadToCloudinary(
+          file.buffer,
+          "shiru/products"
+        );
+
+        newImageUrls.push(result.secure_url);
+      }
+
+      // Keep existing images + new images
+      product.images = [
+        ...(product.images || []),
+        ...newImageUrls,
+      ];
+    }
+
+    // ======================================
+    // SAVE
+    // ======================================
 
     await product.save();
 
@@ -468,7 +598,6 @@ export const updateProduct = async (req, res) => {
     });
   }
 };
-
 // ======================================
 // DELETE MERCHANT PRODUCT
 // ======================================

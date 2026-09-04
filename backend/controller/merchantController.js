@@ -130,3 +130,28 @@ export const getMerchantProfile = async (req, res) => {
     });
   }
 };
+
+export const getMerchants = async (req, res) => {
+  try {
+    const merchants = await Merchant.find({
+      status: "ACTIVE",
+      aiEnabled: true,
+    })
+      .select("storeName description logo website currency status aiEnabled")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: merchants.length,
+      merchants,
+    });
+
+  } catch (error) {
+    console.error("Get merchants error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to fetch merchants",
+    });
+  }
+};

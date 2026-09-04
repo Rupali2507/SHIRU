@@ -1,17 +1,10 @@
-import React from "react";
-import assets from "../assets/assets";
-import { Link } from "react-router-dom";
+import React from 'react'
+import assets from '../assets/assets'
+import { Link } from 'react-router-dom'
 
 const Navbar = () => {
-
-  const token = localStorage.getItem("token");
-
-  const user = JSON.parse(
-    localStorage.getItem("user") || "null"
-  );
-
   return (
-    <nav className="fixed top-0 left-0 z-50 w-full">
+    <nav className="fixed top-0 left-0 z-50 w-full ">
       <div className="mx-auto flex max-w-[1400px] items-center justify-between">
 
         {/* Logo */}
@@ -30,30 +23,24 @@ const Navbar = () => {
         <div className="flex items-center gap-5">
 
           <Link
-            to={
-              token == null
-                ? "/signin"
-                : user?.role === "MERCHANT"
-                  ? "/merchant"
-                  : "/app"
-            }
+            to="/signin"
             className="
-              rounded-full
-              bg-white
-              px-6
-              py-2.5
-              text-[11px]
-              font-medium
-              text-black
+                rounded-full
+                bg-white
+                px-6
+                py-2.5
+                text-[11px]
+                font-medium
+                text-black
             "
-          >
+            >
             Sign in
-          </Link>
-
+            </Link>
         </div>
+
       </div>
     </nav>
-  );
-};
+  )
+}
 
-export default Navbar;
+export default Navbar

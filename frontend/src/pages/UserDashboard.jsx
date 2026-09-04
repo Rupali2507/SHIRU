@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardNav from '../components/DashboardNav'
+import ShiruParticles from '../components/ShiruPaticles.jsx'
 import { getProducts, searchProducts } from '../services/productService'
 import {
   createOrder,
@@ -24,7 +25,7 @@ const ORDER_STATUS_STYLES = {
 }
 
 const UserDashboard = () => {
-
+ 
   const navigate = useNavigate()
 
   const user = JSON.parse(localStorage.getItem('user') || 'null')
@@ -92,6 +93,43 @@ const UserDashboard = () => {
       setProductsLoading(false)
     }
   }
+
+  // -------------------------
+  // Shiru hero + stores
+  // -------------------------
+
+  const particleProgress = useRef(1)
+  const recommendedRef = useRef(null)
+
+  const [aiPromptOpen, setAiPromptOpen] = useState(false)
+  const [selectedStoreId, setSelectedStoreId] = useState(null)
+
+  const stores = useMemo(() => {
+    const map = new Map()
+
+    products.forEach((product) => {
+      const merchantId = product.merchant?._id
+
+      if (!merchantId) return
+
+      if (!map.has(merchantId)) {
+        map.set(merchantId, {
+          id: merchantId,
+          storeName: product.merchant.storeName || 'SHIRU merchant',
+          productCount: 0,
+        })
+      }
+
+      map.get(merchantId).productCount += 1
+    })
+
+    return Array.from(map.values())
+  }, [products])
+
+  const visibleProducts = useMemo(() => {
+    if (!selectedStoreId) return products
+    return products.filter((product) => product.merchant?._id === selectedStoreId)
+  }, [products, selectedStoreId])
 
   // -------------------------
   // Buy panel
@@ -208,17 +246,7 @@ const UserDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
-  const stats = useMemo(() => {
-    const totalSpent = orders
-      .filter((o) => o.status === 'PAID' || o.status === 'DELIVERED' || o.status === 'PROCESSING' || o.status === 'SHIPPED')
-      .reduce((sum, o) => sum + o.totalAmount, 0)
-
-    return {
-      productsAvailable: products.length,
-      totalOrders: orders.length,
-      totalSpent,
-    }
-  }, [products, orders])
+  const [cartNotice, setCartNotice] = useState(false)
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -228,236 +256,170 @@ const UserDashboard = () => {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         eyebrow="AI buyer"
+        showCart
+        onCartClick={() => {
+          setCartNotice(true)
+          setTimeout(() => setCartNotice(false), 2500)
+        }}
       />
 
+      {cartNotice && (
+        <div className="fixed right-6 top-[84px] z-[70] rounded-full border border-white/10 bg-[#111111] px-4 py-2 text-[11px] text-white/60 shadow-xl">
+          Cart is on the way — for now, buy items directly from a product.
+        </div>
+      )}
+
       <div className="mx-auto max-w-[1500px] px-6 pb-16 pt-[120px] lg:px-10">
-
-        {/* Header */}
-
-        <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
-
-          <div>
-
-            <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/30">
-              Welcome{user?.name ? `, ${user.name}` : ''}
-            </p>
-
-            <h1 className="mt-3 text-[38px] font-medium tracking-[-0.05em] md:text-[46px]">
-              What are you buying today?
-            </h1>
-
-            <p className="mt-3 max-w-xl text-sm leading-6 text-white/40">
-              Browse everything available to SHIRU right now, or tell it what
-              you need and let it find the best match.
-            </p>
-
-          </div>
-
-          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/50">
-              Test mode
-            </span>
-          </div>
-
-        </div>
-
-        {/* Stats */}
-
-        <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-3">
-
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111111] p-6">
-            <p className="text-[11px] text-white/35">Products available</p>
-            <p className="mt-4 text-[26px] font-medium tracking-[-0.04em]">
-              {stats.productsAvailable}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111111] p-6">
-            <p className="text-[11px] text-white/35">Orders placed</p>
-            <p className="mt-4 text-[26px] font-medium tracking-[-0.04em]">
-              {stats.totalOrders}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111111] p-6">
-            <p className="text-[11px] text-white/35">Total spent</p>
-            <p className="mt-4 text-[26px] font-medium tracking-[-0.04em]">
-              ₹{stats.totalSpent.toLocaleString('en-IN')}
-            </p>
-          </div>
-
-        </div>
 
         {/* ============================================= */}
         {/* SHOP TAB */}
         {/* ============================================= */}
 
         {activeTab === 'shop' && (
-          <>
+          <div className="mt-8 overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0a0a0a]">
 
-            {/* Search */}
+            {/* Hero — Shiru */}
 
-            <form
-              onSubmit={handleSearch}
-              className="mt-10 flex items-center gap-3"
-            >
+            <div className="relative flex min-h-[360px] flex-col items-center justify-center overflow-hidden border-b border-white/[0.07] px-6 py-16 text-center">
 
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for products, brands, categories..."
-                className="
-                  w-full
-                  max-w-md
-                  rounded-lg
-                  border
-                  border-white/10
-                  bg-white/[0.04]
-                  px-4
-                  py-3
-                  text-[12px]
-                  text-white
-                  outline-none
-                  placeholder:text-white/25
-                  focus:border-white/30
-                "
-              />
+              <ShiruParticles progressRef={particleProgress} />
 
-              <button
-                type="submit"
-                className="
-                  rounded-full
-                  bg-white
-                  px-6
-                  py-3
-                  text-[11px]
-                  font-medium
-                  text-black
-                  transition
-                  hover:bg-white/90
-                "
-              >
-                Search
-              </button>
+              <div className="relative z-10">
 
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('')
-                    loadProducts()
-                  }}
-                  className="text-[11px] text-white/40 hover:text-white"
-                >
-                  Clear
-                </button>
-              )}
+                <h2 className="text-[32px] font-medium tracking-[-0.04em] md:text-[40px]">
+                  Hey! I am SHIRU
+                </h2>
 
-            </form>
-
-            {/* Product grid */}
-
-            <div className="mt-8">
-
-              {productsLoading && (
-                <p className="py-16 text-center text-[12px] text-white/30">
-                  Loading products...
+                <p className="mx-auto mt-3 max-w-sm text-[13px] leading-6 text-white/40">
+                  Tell me what you're looking for and I'll find the best possible version.
                 </p>
-              )}
 
-              {!productsLoading && productsError && (
-                <p className="py-16 text-center text-[12px] text-red-400">
-                  {productsError}
-                </p>
-              )}
-
-              {!productsLoading && !productsError && products.length === 0 && (
-                <p className="py-16 text-center text-[12px] text-white/30">
-                  No products found.
-                </p>
-              )}
-
-              {!productsLoading && !productsError && products.length > 0 && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-
-                  {products.map((product) => (
-                    <div
-                      key={product._id}
+                {!aiPromptOpen ? (
+                  <button
+                    onClick={() => setAiPromptOpen(true)}
+                    className="
+                      mt-7
+                      rounded-full
+                      bg-white
+                      px-7
+                      py-3
+                      text-[12px]
+                      font-medium
+                      text-black
+                      transition
+                      hover:bg-white/90
+                    "
+                  >
+                    Start shopping
+                  </button>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      handleSearch(e)
+                      recommendedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }}
+                    className="mx-auto mt-7 flex max-w-md items-center gap-2"
+                  >
+                    <input
+                      autoFocus
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="e.g. running shoes under ₹3000"
                       className="
-                        group
-                        overflow-hidden
-                        rounded-2xl
+                        w-full
+                        rounded-full
                         border
-                        border-white/[0.08]
-                        bg-[#111111]
+                        border-white/15
+                        bg-black/60
+                        px-5
+                        py-3
+                        text-[12px]
+                        text-white
+                        outline-none
+                        placeholder:text-white/25
+                        focus:border-white/30
+                      "
+                    />
+                    <button
+                      type="submit"
+                      className="
+                        shrink-0
+                        rounded-full
+                        bg-white
+                        px-5
+                        py-3
+                        text-[11px]
+                        font-medium
+                        text-black
                         transition
-                        hover:border-white/[0.18]
+                        hover:bg-white/90
                       "
                     >
+                      Ask
+                    </button>
+                  </form>
+                )}
 
-                      <div className="flex aspect-square items-center justify-center border-b border-white/[0.06] bg-black/40">
+              </div>
 
-                        {product.images?.[0] ? (
-                          <img
-                            src={product.images[0]}
-                            alt={product.name}
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none'
-                            }}
-                          />
-                        ) : (
-                          <span className="text-3xl text-white/10">✦</span>
-                        )}
+            </div>
 
+            {/* Stores in Shiru */}
+
+            <div className="border-b border-white/[0.07] px-7 py-8 lg:px-10">
+
+              <div className="flex items-center justify-between">
+                <h3 className="text-[15px] font-medium">Stores in Shiru</h3>
+
+                {selectedStoreId && (
+                  <button
+                    onClick={() => setSelectedStoreId(null)}
+                    className="text-[10px] text-white/40 hover:text-white"
+                  >
+                    Clear filter
+                  </button>
+                )}
+              </div>
+
+              {stores.length === 0 ? (
+                <p className="mt-4 text-[12px] text-white/30">
+                  No stores have listed products yet.
+                </p>
+              ) : (
+                <div className="mt-5 flex gap-3 overflow-x-auto pb-2">
+
+                  {stores.map((store) => (
+                    <button
+                      key={store.id}
+                      onClick={() => setSelectedStoreId(store.id === selectedStoreId ? null : store.id)}
+                      className={`
+                        w-[220px]
+                        shrink-0
+                        rounded-2xl
+                        border
+                        p-5
+                        text-left
+                        transition
+                        ${
+                          selectedStoreId === store.id
+                            ? 'border-white/30 bg-white/[0.06]'
+                            : 'border-white/[0.08] bg-[#111111] hover:border-white/20'
+                        }
+                      `}
+                    >
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[12px] text-white/70">
+                        {store.storeName.charAt(0).toUpperCase()}
                       </div>
 
-                      <div className="p-5">
+                      <p className="mt-4 text-[13px] font-medium leading-5">
+                        {store.storeName}
+                      </p>
 
-                        <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/30">
-                          {product.category}
-                        </p>
-
-                        <h3 className="mt-2 text-[14px] font-medium leading-5">
-                          {product.name}
-                        </h3>
-
-                        <p className="mt-1 text-[11px] text-white/35">
-                          {product.merchant?.storeName || 'SHIRU merchant'}
-                        </p>
-
-                        <div className="mt-4 flex items-center justify-between">
-
-                          <p className="text-[15px] font-medium">
-                            ₹{product.price.toLocaleString('en-IN')}
-                          </p>
-
-                          <button
-                            onClick={() => openBuyPanel(product)}
-                            className="
-                              rounded-full
-                              border
-                              border-white/15
-                              px-4
-                              py-1.5
-                              text-[10px]
-                              text-white/70
-                              transition
-                              hover:border-white/30
-                              hover:bg-white
-                              hover:text-black
-                            "
-                          >
-                            Buy
-                          </button>
-
-                        </div>
-
-                      </div>
-
-                    </div>
+                      <p className="mt-1 text-[10px] text-white/30">
+                        {store.productCount} product{store.productCount === 1 ? '' : 's'}
+                      </p>
+                    </button>
                   ))}
 
                 </div>
@@ -465,7 +427,121 @@ const UserDashboard = () => {
 
             </div>
 
-          </>
+            {/* Recommended products */}
+
+            <div ref={recommendedRef} className="px-7 py-8 lg:px-10">
+
+              <h3 className="text-[15px] font-medium">Recommended products</h3>
+
+              <div className="mt-6">
+
+                {productsLoading && (
+                  <p className="py-16 text-center text-[12px] text-white/30">
+                    Loading products...
+                  </p>
+                )}
+
+                {!productsLoading && productsError && (
+                  <p className="py-16 text-center text-[12px] text-red-400">
+                    {productsError}
+                  </p>
+                )}
+
+                {!productsLoading && !productsError && visibleProducts.length === 0 && (
+                  <p className="py-16 text-center text-[12px] text-white/30">
+                    No products found.
+                  </p>
+                )}
+
+                {!productsLoading && !productsError && visibleProducts.length > 0 && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+                    {visibleProducts.map((product) => (
+                      <div
+                        key={product._id}
+                        className="
+                          group
+                          overflow-hidden
+                          rounded-2xl
+                          border
+                          border-white/[0.08]
+                          bg-[#111111]
+                          transition
+                          hover:border-white/[0.18]
+                        "
+                      >
+
+                        <div className="flex aspect-square items-center justify-center border-b border-white/[0.06] bg-black/40">
+
+                          {product.images?.[0] ? (
+                            <img
+                              src={product.images[0]}
+                              alt={product.name}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none'
+                              }}
+                            />
+                          ) : (
+                            <span className="text-3xl text-white/10">✦</span>
+                          )}
+
+                        </div>
+
+                        <div className="p-5">
+
+                          <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/30">
+                            {product.category}
+                          </p>
+
+                          <h3 className="mt-2 text-[14px] font-medium leading-5">
+                            {product.name}
+                          </h3>
+
+                          <p className="mt-1 text-[11px] text-white/35">
+                            {product.merchant?.storeName || 'SHIRU merchant'}
+                          </p>
+
+                          <div className="mt-4 flex items-center justify-between">
+
+                            <p className="text-[15px] font-medium">
+                              ₹{product.price.toLocaleString('en-IN')}
+                            </p>
+
+                            <button
+                              onClick={() => openBuyPanel(product)}
+                              className="
+                                rounded-full
+                                border
+                                border-white/15
+                                px-4
+                                py-1.5
+                                text-[10px]
+                                text-white/70
+                                transition
+                                hover:border-white/30
+                                hover:bg-white
+                                hover:text-black
+                              "
+                            >
+                              Buy
+                            </button>
+
+                          </div>
+
+                        </div>
+
+                      </div>
+                    ))}
+
+                  </div>
+                )}
+
+              </div>
+
+            </div>
+
+          </div>
         )}
 
         {/* ============================================= */}
