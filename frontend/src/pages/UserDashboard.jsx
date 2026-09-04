@@ -54,6 +54,7 @@ const UserDashboard = () => {
   const [productsError, setProductsError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
+
   const loadProducts = async () => {
     try {
       setProductsLoading(true)
@@ -93,6 +94,7 @@ const UserDashboard = () => {
       setProductsLoading(false)
     }
   }
+ 
 
   // -------------------------
   // Shiru hero + stores
@@ -314,12 +316,19 @@ const UserDashboard = () => {
                   </button>
                 ) : (
                   <form
-                    onSubmit={(e) => {
-                      handleSearch(e)
-                      recommendedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                    }}
-                    className="mx-auto mt-7 flex max-w-md items-center gap-2"
-                  >
+                        onSubmit={(e) => {
+                          e.preventDefault()
+
+                          if (!searchQuery.trim()) return
+
+                          navigate(
+                            `/chat?query=${encodeURIComponent(
+                              searchQuery.trim()
+                            )}`
+                          )
+                        }}
+                        className="mx-auto mt-7 flex max-w-md items-center gap-2"
+                      >
                     <input
                       autoFocus
                       type="text"
@@ -364,6 +373,7 @@ const UserDashboard = () => {
               </div>
 
             </div>
+           
 
             {/* Stores in Shiru */}
 

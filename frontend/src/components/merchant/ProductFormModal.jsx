@@ -79,42 +79,44 @@ const ProductFormModal = ({
   // IMAGE CHANGE
   // -----------------------------------------
   const handleImageChange = (e) => {
-    const selectedFiles = Array.from(e.target.files || []);
+  const selectedFiles = Array.from(e.target.files || []);
 
-    if (!selectedFiles.length) return;
+  if (!selectedFiles.length) return;
 
-    // Only images
-    const validFiles = selectedFiles.filter((file) =>
-      file.type.startsWith("image/")
-    );
+  const validFiles = selectedFiles.filter((file) =>
+    file.type.startsWith("image/")
+  );
 
-    // Existing files + newly selected files
-    const combinedFiles = [
-      ...form.images,
-      ...validFiles,
-    ].slice(0, 5);
+  const remainingSlots = 5 - form.images.length;
 
-    setForm((prev) => ({
-      ...prev,
-      images: combinedFiles,
-    }));
+  const filesToAdd = validFiles.slice(0, remainingSlots);
 
-    // Create previews for newly selected files
-    const newPreviews = validFiles
-      .slice(0, 5 - form.images.length)
-      .map((file) => URL.createObjectURL(file));
-
-    setImagePreviews((prev) => [
-      ...prev,
-      ...newPreviews,
-    ]);
-
-    // Send files to parent
-    onImagesChange?.(combinedFiles);
-
-    // Allow selecting the same file again
+  if (!filesToAdd.length) {
     e.target.value = "";
-  };
+    return;
+  }
+
+  setForm((prev) => ({
+    ...prev,
+    images: [...prev.images, ...filesToAdd],
+  }));
+
+  const previews = filesToAdd.map((file) =>
+    URL.createObjectURL(file)
+  );
+
+  setImagePreviews((prev) => [
+    ...prev,
+    ...previews,
+  ]);
+
+  onImagesChange?.([
+    ...form.images,
+    ...filesToAdd,
+  ]);
+
+  e.target.value = "";
+};
 
   // -----------------------------------------
   // REMOVE IMAGE
@@ -412,78 +414,73 @@ const ProductFormModal = ({
               </p>
             </div>
 
-            {/* ================= IMAGES ================= */}
+        
 
-            <div>
+<div>
+  <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">
+    Product Images
+  </label>
 
-              <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">
-                Product Images
-              </label>
+  <div className="mt-2 rounded-2xl border border-dashed border-white/[0.1] bg-white/[0.015] p-6 text-center">
 
-              <div className="mt-2 rounded-2xl border border-dashed border-white/[0.1] bg-white/[0.015] p-6 text-center transition hover:border-white/[0.2]">
+    <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-lg text-white/50">
+      +
+    </div>
 
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-lg text-white/50">
-                  +
-                </div>
+    <p className="mt-3 text-sm text-white/60">
+      Upload product images
+    </p>
 
-                <p className="mt-3 text-sm text-white/60">
-                  Upload product images
-                </p>
+    <p className="mt-1 text-[11px] text-white/25">
+      PNG, JPG or WEBP · Up to 5 images
+    </p>
 
-                <p className="mt-1 text-[11px] text-white/25">
-                  PNG, JPG or WEBP · Up to 5 images
-                </p>
+    <label className="mt-4 inline-flex cursor-pointer items-center rounded-full border border-white/[0.1] bg-white/[0.04] px-4 py-2 text-xs text-white/65 transition hover:bg-white/[0.08] hover:text-white">
 
-                <label className="mt-4 inline-flex cursor-pointer items-center rounded-full border border-white/[0.1] bg-white/[0.04] px-4 py-2 text-xs text-white/65 transition hover:bg-white/[0.08] hover:text-white">
+      Choose images
 
-                  Choose images
+      <input
+        type="file"
+        multiple
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={handleImageChange}
+      />
 
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={handleImageChange}
-                  />
+    </label>
+  </div>
 
-                </label>
+  {/* IMAGE PREVIEWS */}
 
-              </div>
+  {imagePreviews.length > 0 && (
+    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
 
-              {/* IMAGE PREVIEWS */}
+      {imagePreviews.map((image, index) => (
+        <div
+          key={`${image}-${index}`}
+          className="group relative aspect-square overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03]"
+        >
 
-              {imagePreviews.length > 0 && (
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <img
+            src={image}
+            alt={`Product ${index + 1}`}
+            className="h-full w-full object-cover"
+          />
 
-                  {imagePreviews.map((image, index) => (
-                    <div
-                      key={`${image}-${index}`}
-                      className="group relative aspect-square overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03]"
-                    >
+          <button
+            type="button"
+            onClick={() => handleRemoveImage(index)}
+            className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white/70 opacity-0 transition group-hover:opacity-100 hover:bg-black hover:text-white"
+          >
+            ×
+          </button>
 
-                      <img
-                        src={image}
-                        alt={`Product ${index + 1}`}
-                        className="h-full w-full object-cover"
-                      />
+        </div>
+      ))}
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleRemoveImage(index)
-                        }
-                        className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white/70 opacity-0 backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black hover:text-white"
-                      >
-                        ×
-                      </button>
-
-                    </div>
-                  ))}
-
-                </div>
-              )}
-
-            </div>
+    </div>
+  )}
+</div>
 
           </div>
 

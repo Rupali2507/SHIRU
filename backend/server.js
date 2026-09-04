@@ -6,6 +6,7 @@ import authRoutes from './routes/authRoutes.js'
 import merchantRoutes from "./routes/merchantRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -25,6 +26,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/merchant", merchantRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders",orderRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.listen(process.env.PORT,()=>{
     console.log(`Server is runnning at ${process.env.PORT}`)

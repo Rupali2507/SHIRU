@@ -1,254 +1,60 @@
 import Order from "../models/Order.js";
-import Product from "../models/Product.js";
+
 import Merchant from "../models/Merchant.js";
-import razorpay from "../config/razorpay.js";
+
 import crypto from "crypto";
+import {
+  createOrderService,
+} from "../services/orderService.js";
+
 
 
 
 // ======================================
 // CREATE ORDER
 // ======================================
+// ======================================
+// CREATE ORDER
+// ======================================
 
-export const createOrder = async (req, res) => {
+export const createOrder = async (
+  req,
+  res
+) => {
   try {
-
-    const userId = req.user.userId;
+    const userId =
+      req.user.userId;
 
     const {
       items,
       shippingAddress,
     } = req.body;
 
-
-    // -----------------------------------
-    // Validate items
-    // -----------------------------------
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "At least one product is required",
+    const result =
+      await createOrderService({
+        userId,
+        items,
+        shippingAddress,
       });
-    }
-
-
-    let orderItems = [];
-    let subtotal = 0;
-    let merchantId = null;
-
-
-    // -----------------------------------
-    // Validate every product
-    // -----------------------------------
-
-    for (const item of items) {
-
-      const product = await Product.findOne({
-        _id: item.productId,
-        status: "ACTIVE",
-        aiEnabled: true,
-      });
-
-
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: `Product not found: ${item.productId}`,
-        });
-      }
-
-
-      // --------------------------------
-      // Stock check
-      // --------------------------------
-
-      if (product.stock < item.quantity) {
-        return res.status(400).json({
-          success: false,
-          message: `${product.name} does not have enough stock`,
-        });
-      }
-
-
-      // --------------------------------
-      // Merchant consistency
-      // --------------------------------
-
-      if (!merchantId) {
-        merchantId = product.merchant;
-      }
-
-
-      if (
-        product.merchant.toString() !==
-        merchantId.toString()
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "All products in one order must belong to the same merchant",
-        });
-      }
-
-
-      // --------------------------------
-      // Validate size
-      // --------------------------------
-
-      if (
-        item.selectedSize &&
-        product.sizes.length > 0 &&
-        !product.sizes.includes(item.selectedSize)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            `${product.name} does not have size ${item.selectedSize}`,
-        });
-      }
-
-
-      // --------------------------------
-      // Validate color
-      // --------------------------------
-
-      if (
-        item.selectedColor &&
-        product.colors.length > 0 &&
-        !product.colors.includes(item.selectedColor)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            `${product.name} does not have color ${item.selectedColor}`,
-        });
-      }
-
-
-      // --------------------------------
-      // Calculate price from DB
-      // --------------------------------
-
-      const itemTotal =
-        product.price * item.quantity;
-
-      subtotal += itemTotal;
-
-
-      orderItems.push({
-        product: product._id,
-
-        name: product.name,
-
-        sku: product.sku,
-
-        quantity: item.quantity,
-
-        price: product.price,
-
-        selectedSize:
-          item.selectedSize || null,
-
-        selectedColor:
-          item.selectedColor || null,
-      });
-    }
-
-
-    // -----------------------------------
-    // For now no tax/shipping
-    // -----------------------------------
-
-    const totalAmount = subtotal;
-
-
-    // -----------------------------------
-    // Create Razorpay order
-    // -----------------------------------
-
-    const razorpayOrder =
-      await razorpay.orders.create({
-
-        amount: Math.round(totalAmount * 100),
-
-        currency: "INR",
-
-        receipt: `shiru_${Date.now()}`,
-
-        notes: {
-          userId: userId.toString(),
-          merchantId: merchantId.toString(),
-        },
-      });
-
-
-    // -----------------------------------
-    // Create SHIRU order
-    // -----------------------------------
-
-    const order = await Order.create({
-
-      user: userId,
-
-      merchant: merchantId,
-
-      items: orderItems,
-
-      subtotal,
-
-      totalAmount,
-
-      currency: "INR",
-
-      status: "PAYMENT_PENDING",
-
-      razorpayOrderId:
-        razorpayOrder.id,
-
-      shippingAddress:
-        shippingAddress || {},
-    });
-
 
     return res.status(201).json({
-
       success: true,
-
-      message: "Order created successfully",
-
-      order: {
-        id: order._id,
-
-        amount: order.totalAmount,
-
-        currency: order.currency,
-
-        status: order.status,
-
-        razorpayOrderId:
-          order.razorpayOrderId,
-      },
-
-      razorpay: {
-        orderId: razorpayOrder.id,
-
-        amount: razorpayOrder.amount,
-
-        currency: razorpayOrder.currency,
-
-        keyId:
-          process.env.RAZORPAY_KEY_ID,
-      },
+      message:
+        "Order created successfully",
+      ...result,
     });
 
   } catch (error) {
+    console.error(
+      "Create order error:",
+      error
+    );
 
-    console.error("Create order error:", error);
-
-    return res.status(500).json({
+    return res.status(400).json({
       success: false,
-      message: "Unable to create order",
+      message:
+        error.message ||
+        "Unable to create order",
     });
   }
 };

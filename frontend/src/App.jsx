@@ -11,6 +11,7 @@ import MerchantDashboard from './pages/MerchantDashboard'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import TestCheckout from './pages/TestCheckout'
+import AIChat from './pages/AIChat'
 
 const App = () => {
   return (
@@ -25,6 +26,7 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPassword />}/>
         <Route path="/reset-password/:token" element={<ResetPassword />}/>
         <Route path="/test-checkout" element={<TestCheckout />}/>
+        <Route path="/chat" element={<AIChat />}/>
       </Routes>
     </div>
   )
