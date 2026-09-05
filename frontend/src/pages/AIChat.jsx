@@ -53,8 +53,14 @@ const AIChat = () => {
   const [isListening, setIsListening] =
     useState(false)
 
+  const [isSpeaking, setIsSpeaking] =
+    useState(false)
+
   const [voiceSupported, setVoiceSupported] =
     useState(true)
+
+  const [voiceError, setVoiceError] =
+    useState('')
 
   const recognitionRef =
     useRef(null)
@@ -104,6 +110,7 @@ const AIChat = () => {
 
     recognition.onstart = () => {
       setIsListening(true)
+      setVoiceError('')
     }
 
     recognition.onresult = (event) => {
@@ -118,7 +125,7 @@ const AIChat = () => {
       setMessage(transcript)
 
       // Automatically send voice command
-      sendMessage(transcript)
+      sendMessage(transcript, { viaVoice: true })
     }
 
     recognition.onerror = (event) => {
@@ -128,6 +135,23 @@ const AIChat = () => {
       )
 
       setIsListening(false)
+
+      if (
+        event.error === 'not-allowed' ||
+        event.error === 'service-not-allowed'
+      ) {
+        setVoiceError(
+          'Mic access is blocked. Allow microphone permission for this site, then tap the mic again.'
+        )
+      } else if (event.error === 'audio-capture') {
+        setVoiceError(
+          'No microphone found. Check your device and tap the mic again.'
+        )
+      } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        setVoiceError(
+          'Voice input hit a snag. Tap the mic to try again.'
+        )
+      }
     }
 
     recognition.onend = () => {
@@ -157,12 +181,21 @@ const AIChat = () => {
   // TEXT TO SPEECH
   // =========================================================
 
-  const speakResponse = (text) => {
-    if (!text) return
+  const speakResponse = (text, { onDone } = {}) => {
+    const finishNow = () => {
+      setIsSpeaking(false)
+      onDone?.()
+    }
+
+    if (!text) {
+      finishNow()
+      return
+    }
 
     if (
       !('speechSynthesis' in window)
     ) {
+      finishNow()
       return
     }
 
@@ -178,7 +211,10 @@ const AIChat = () => {
         .replace(/\n+/g, '. ')
         .trim()
 
-    if (!cleanText) return
+    if (!cleanText) {
+      finishNow()
+      return
+    }
 
     const utterance =
       new SpeechSynthesisUtterance(
@@ -189,9 +225,53 @@ const AIChat = () => {
     utterance.rate = 0.95
     utterance.pitch = 1
 
+    let settled = false
+
+    const finish = () => {
+      if (settled) return
+      settled = true
+      finishNow()
+    }
+
+    utterance.onstart = () => {
+      setIsSpeaking(true)
+    }
+
+    utterance.onend = finish
+    utterance.onerror = finish
+
     window.speechSynthesis.speak(
       utterance
     )
+
+    // Safety net: some browsers (Chromium tabs opened by
+    // typing a URL directly, strict autoplay/privacy modes,
+    // etc.) silently drop speak() calls without ever firing
+    // onstart/onend/onerror. Without this, the assistant would
+    // look "stuck speaking" forever and a voice follow-up
+    // (like auto-listening) would never happen.
+    const approxDurationMs =
+      Math.min(
+        9000,
+        Math.max(1500, cleanText.length * 55)
+      )
+
+    setTimeout(finish, approxDurationMs)
+  }
+
+  // =========================================================
+  // START LISTENING (safe helper)
+  // =========================================================
+
+  const startListening = () => {
+    if (!recognitionRef.current) return
+
+    try {
+      recognitionRef.current.start()
+    } catch {
+      // Already listening, or mic permission
+      // hasn't been resolved yet — ignore.
+    }
   }
 
   // =========================================================
@@ -204,6 +284,8 @@ const AIChat = () => {
     ) {
       window.speechSynthesis.cancel()
     }
+
+    setIsSpeaking(false)
   }
 
   // =========================================================
@@ -238,6 +320,7 @@ const AIChat = () => {
     stopSpeaking()
 
     setMessage('')
+    setVoiceError('')
 
     try {
       recognitionRef.current.start()
@@ -245,6 +328,10 @@ const AIChat = () => {
       console.error(
         'Could not start voice recognition:',
         error
+      )
+
+      setVoiceError(
+        'Could not start the mic. Tap it again.'
       )
     }
   }
@@ -271,34 +358,14 @@ const AIChat = () => {
       },
     ])
 
-    if (!('speechSynthesis' in window)) {
-      return
-    }
+    setVoiceError('')
 
-    window.speechSynthesis.cancel()
-
-    const utterance =
-      new SpeechSynthesisUtterance(greeting)
-
-    utterance.lang = 'en-IN'
-    utterance.rate = 0.95
-    utterance.pitch = 1
-
-    // Once SHIRU finishes speaking, start
-    // listening for the user's voice response.
-    utterance.onend = () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.start()
-        } catch {
-          // May already be running
-        }
-      }
-    }
-
-    window.speechSynthesis.speak(
-      utterance
-    )
+    // Speak the greeting, then start listening —
+    // works even if the browser silently blocks TTS,
+    // thanks to the safety-net timer inside speakResponse.
+    speakResponse(greeting, {
+      onDone: startListening,
+    })
   }
 
   // Greet on first landing on a fresh /chat
@@ -418,7 +485,10 @@ const AIChat = () => {
   // SEND MESSAGE
   // =========================================================
 
-  const sendMessage = async (text) => {
+  const sendMessage = async (
+    text,
+    { viaVoice = false } = {}
+  ) => {
     if (!text?.trim() || loading) {
       return
     }
@@ -487,7 +557,14 @@ const AIChat = () => {
       // =====================================================
 
       speakResponse(
-        assistantResponse
+        assistantResponse,
+        {
+          // Hands-free follow-up: if this exchange started
+          // from voice, keep listening after SHIRU replies.
+          onDone: () => {
+            if (viaVoice) startListening()
+          },
+        }
       )
 
       // =====================================================
@@ -552,6 +629,15 @@ const AIChat = () => {
 
       setMessages(
         finalMessages
+      )
+
+      speakResponse(
+        errorMessage.content,
+        {
+          onDone: () => {
+            if (viaVoice) startListening()
+          },
+        }
       )
 
       let currentChatId =
@@ -999,13 +1085,65 @@ const AIChat = () => {
             "
           >
 
-            <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/25">
-              Personal shopping assistant
-            </p>
+            <div className="flex items-center justify-between gap-4">
 
-            <h1 className="mt-2 text-[18px] font-medium">
-              SHIRU
-            </h1>
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/25">
+                  Personal shopping assistant
+                </p>
+
+                <h1 className="mt-2 text-[18px] font-medium">
+                  SHIRU
+                </h1>
+              </div>
+
+              {/* ============================================= */}
+              {/* VOICE STATUS BADGE — always visible, so it's */}
+              {/* obvious whether SHIRU is listening, speaking, */}
+              {/* or idle. */}
+              {/* ============================================= */}
+
+              {(isListening || isSpeaking) && (
+                <div
+                  className={`
+                    flex
+                    shrink-0
+                    items-center
+                    gap-2
+                    rounded-full
+                    border
+                    px-3
+                    py-1.5
+                    text-[10px]
+                    font-medium
+                    uppercase
+                    tracking-[0.15em]
+                    ${
+                      isListening
+                        ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                        : 'border-white/15 bg-white/[0.06] text-white/60'
+                    }
+                  `}
+                >
+                  <span
+                    className={`
+                      h-1.5
+                      w-1.5
+                      rounded-full
+                      ${
+                        isListening
+                          ? 'animate-pulse bg-emerald-400'
+                          : 'animate-pulse bg-white/60'
+                      }
+                    `}
+                  />
+                  {isListening
+                    ? 'Listening...'
+                    : 'Speaking...'}
+                </div>
+              )}
+
+            </div>
 
           </div>
 
@@ -1120,7 +1258,7 @@ const AIChat = () => {
                     className={
                       item.role === 'user'
                         ? 'flex justify-end'
-                        : 'flex justify-start'
+                        : 'flex flex-col items-start gap-1.5'
                     }
                   >
 
@@ -1155,6 +1293,37 @@ const AIChat = () => {
                     >
                       {item.content}
                     </div>
+
+                    {/* Replay button — lets the user manually
+                        trigger audio with a click, which always
+                        satisfies the browser's autoplay/user-
+                        gesture requirement even if the automatic
+                        speech was silently blocked. */}
+
+                    {item.role === 'assistant' && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          speakResponse(
+                            item.content
+                          )
+                        }
+                        className="
+                          ml-1
+                          flex
+                          items-center
+                          gap-1
+                          text-[9px]
+                          uppercase
+                          tracking-[0.15em]
+                          text-white/25
+                          transition
+                          hover:text-white/60
+                        "
+                      >
+                        🔊 Play
+                      </button>
+                    )}
 
                   </div>
 
@@ -1424,15 +1593,32 @@ const AIChat = () => {
 
               <p className="mx-auto mt-2 max-w-3xl text-center text-[9px] text-white/20">
                 Voice input is not supported
-                in this browser.
+                in this browser. Try Chrome
+                or Edge, or use text below.
+              </p>
+
+            )}
+
+            {voiceSupported && voiceError && (
+
+              <p className="mx-auto mt-2 max-w-3xl text-center text-[9px] text-amber-400/70">
+                {voiceError}
               </p>
 
             )}
 
             {isListening && (
 
+              <p className="mx-auto mt-2 max-w-3xl text-center font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-300/70">
+                🎤 Listening to you — just start talking
+              </p>
+
+            )}
+
+            {!isListening && isSpeaking && (
+
               <p className="mx-auto mt-2 max-w-3xl text-center font-mono text-[9px] uppercase tracking-[0.2em] text-white/30">
-                Listening to you...
+                🔊 SHIRU is speaking...
               </p>
 
             )}
