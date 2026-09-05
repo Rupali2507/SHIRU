@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 
 const ForgotPassword = () => {
-
+const API_URL = import.meta.env.VITE_API_URL;
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -26,7 +26,7 @@ const ForgotPassword = () => {
       setLoading(true)
 
       const response = await fetch(
-        'http://localhost:5000/api/auth/forgot-password',
+  `${API_URL}/auth/forgot-password`,
         {
           method: 'POST',
 

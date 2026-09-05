@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 
 const ResetPassword = () => {
-
+  const API_URL = import.meta.env.VITE_API_URL;
   const { token } = useParams()
   const navigate = useNavigate()
 
@@ -47,7 +47,7 @@ const ResetPassword = () => {
       setLoading(true)
 
       const response = await fetch(
-        `http://localhost:5000/api/auth/reset-password/${token}`,
+        `${API_URL}/auth/reset-password/${token}`,
         {
           method: 'POST',
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
-
+const API_URL = import.meta.env.VITE_API_URL;
 const Signup = () => {
 
   const navigate = useNavigate()
@@ -60,8 +60,7 @@ if (formData.password !== formData.confirmPassword) {
 
       setLoading(true)
 
-      const response = await fetch(
-        'http://localhost:5000/api/auth/signup',
+      const response = await fetch(`${API_URL}/auth/signup`,
         {
           method: 'POST',
 

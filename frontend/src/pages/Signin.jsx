@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 
 const SignIn = () => {
-
+const API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate()
 
   const [formData, setFormData] = useState({
@@ -52,8 +52,7 @@ const SignIn = () => {
       setLoading(true)
 
 
-      const response = await fetch(
-        'http://localhost:5000/api/auth/login',
+      const response = await fetch(`${API_URL}/auth/login`,
         {
           method: 'POST',
 
