@@ -28,16 +28,11 @@ export const chatWithAI = async (req, res) => {
 
 
     return res.status(200).json({
-
-      success: true,
-
-      response:
-        result.response,
-
-      productContext:
-        result.productContext || [],
-
-    });
+  success: true,
+  response: result.response,
+  productContext: result.productContext || [],
+  action: result.action || null,
+});
 
   } catch (error) {
 

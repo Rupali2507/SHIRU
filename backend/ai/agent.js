@@ -16,9 +16,11 @@ import {
 import {
   formatCatalogFallback,
 } from "./fallback/responseFallback.js";
+
 import {
   createOrder,
 } from "./tools/orderTools.js";
+
 
 // ==================================================
 // GEMINI TOOLS
@@ -42,6 +44,7 @@ const geminiTools = [
           type: "OBJECT",
 
           properties: {
+
             query: {
               type: "STRING",
               description:
@@ -77,6 +80,7 @@ const geminiTools = [
               description:
                 "Maximum budget in INR.",
             },
+
           },
         },
       },
@@ -96,12 +100,13 @@ const geminiTools = [
           type: "OBJECT",
 
           properties: {
+
             productId: {
               type: "STRING",
-
               description:
                 "The exact ID of the product.",
             },
+
           },
 
           required: [
@@ -125,19 +130,19 @@ const geminiTools = [
           type: "OBJECT",
 
           properties: {
+
             productId: {
               type: "STRING",
-
               description:
                 "The ID of the product the user is considering.",
             },
 
             maxPrice: {
               type: "NUMBER",
-
               description:
                 "Maximum price for related products.",
             },
+
           },
 
           required: [
@@ -145,52 +150,99 @@ const geminiTools = [
           ],
         },
       },
-       {
+
+
+      // --------------------------------------------
+      // createOrder
+      // --------------------------------------------
+
+      {
         name: "createOrder",
+
         description:
-          "Create an order only after the user has explicitly confirmed the purchase.",
+          "Only call this tool after verifying the requested size and color using getProduct. Never pass an unavailable size or color.",
+
         parameters: {
           type: "OBJECT",
+
           properties: {
+
             items: {
               type: "ARRAY",
+
               items: {
                 type: "OBJECT",
+
                 properties: {
+
                   productId: {
                     type: "STRING",
                   },
+
                   quantity: {
                     type: "INTEGER",
                   },
+
                   selectedSize: {
                     type: "STRING",
                   },
+
                   selectedColor: {
                     type: "STRING",
                   },
+
                 },
-                required: ["productId", "quantity"],
+
+                required: [
+                  "productId",
+                  "quantity",
+                ],
               },
             },
 
             shippingAddress: {
               type: "OBJECT",
+
               properties: {
-                name: { type: "STRING" },
-                phone: { type: "STRING" },
-                addressLine1: { type: "STRING" },
-                city: { type: "STRING" },
-                state: { type: "STRING" },
-                postalCode: { type: "STRING" },
-                country: { type: "STRING" },
+
+                name: {
+                  type: "STRING",
+                },
+
+                phone: {
+                  type: "STRING",
+                },
+
+                addressLine1: {
+                  type: "STRING",
+                },
+
+                city: {
+                  type: "STRING",
+                },
+
+                state: {
+                  type: "STRING",
+                },
+
+                postalCode: {
+                  type: "STRING",
+                },
+
+                country: {
+                  type: "STRING",
+                },
+
               },
             },
+
           },
-          required: ["items"],
+
+          required: [
+            "items",
+          ],
         },
       },
-    
 
     ],
   },
@@ -198,10 +250,10 @@ const geminiTools = [
 
 
 // ==================================================
-// OPENAI TOOLS
+// GROQ TOOLS
 // ==================================================
 
-const openAITools = [
+const groqTools = [
 
   // ----------------------------------------------
   // searchProducts
@@ -211,6 +263,7 @@ const openAITools = [
     type: "function",
 
     function: {
+
       name: "searchProducts",
 
       description:
@@ -220,53 +273,126 @@ const openAITools = [
         type: "object",
 
         properties: {
+
           query: {
             type: "string",
-
             description:
               "General product keywords or requirements.",
           },
 
           category: {
             type: "string",
-
             description:
               "Product category requested by the user.",
           },
 
           brand: {
             type: "string",
-
             description:
               "Specific brand requested by the user.",
           },
 
           color: {
             type: "string",
-
             description:
               "Color requested by the user.",
           },
 
           minPrice: {
             type: "number",
-
             description:
               "Minimum budget in INR.",
           },
 
           maxPrice: {
             type: "number",
-
             description:
               "Maximum budget in INR.",
           },
+
         },
       },
     },
   },
 
-    // ----------------------------------------------
+
+  // ----------------------------------------------
+  // getProduct
+  // ----------------------------------------------
+
+  {
+    type: "function",
+
+    function: {
+
+      name: "getProduct",
+
+      description:
+        "Get the exact details of a specific SHIRU product using its product ID.",
+
+      parameters: {
+        type: "object",
+
+        properties: {
+
+          productId: {
+            type: "string",
+            description:
+              "The exact ID of the product.",
+          },
+
+        },
+
+        required: [
+          "productId",
+        ],
+      },
+    },
+  },
+
+
+  // ----------------------------------------------
+  // getRelatedProducts
+  // ----------------------------------------------
+
+  {
+    type: "function",
+
+    function: {
+
+      name: "getRelatedProducts",
+
+      description:
+        "Find products related to a product for useful upselling and cross-selling opportunities.",
+
+      parameters: {
+        type: "object",
+
+        properties: {
+
+          productId: {
+            type: "string",
+            description:
+              "The ID of the product the user is considering.",
+          },
+
+          maxPrice: {
+            type: "number",
+            description:
+              "Maximum price for related products.",
+          },
+
+        },
+
+        required: [
+          "productId",
+        ],
+      },
+    },
+  },
+
+
+  // ----------------------------------------------
   // createOrder
   // ----------------------------------------------
 
@@ -274,6 +400,7 @@ const openAITools = [
     type: "function",
 
     function: {
+
       name: "createOrder",
 
       description:
@@ -283,6 +410,7 @@ const openAITools = [
         type: "object",
 
         properties: {
+
           items: {
             type: "array",
 
@@ -290,12 +418,14 @@ const openAITools = [
               type: "object",
 
               properties: {
+
                 productId: {
                   type: "string",
                 },
 
                 quantity: {
                   type: "integer",
+                  minimum: 1,
                 },
 
                 selectedSize: {
@@ -305,6 +435,7 @@ const openAITools = [
                 selectedColor: {
                   type: "string",
                 },
+
               },
 
               required: [
@@ -318,6 +449,7 @@ const openAITools = [
             type: "object",
 
             properties: {
+
               name: {
                 type: "string",
               },
@@ -345,85 +477,14 @@ const openAITools = [
               country: {
                 type: "string",
               },
+
             },
           },
+
         },
 
         required: [
           "items",
-        ],
-      },
-    },
-  },
-
-
-  // ----------------------------------------------
-  // getProduct
-  // ----------------------------------------------
-
-  {
-    type: "function",
-
-    function: {
-      name: "getProduct",
-
-      description:
-        "Get the exact details of a specific SHIRU product using its product ID.",
-
-      parameters: {
-        type: "object",
-
-        properties: {
-          productId: {
-            type: "string",
-
-            description:
-              "The exact ID of the product.",
-          },
-        },
-
-        required: [
-          "productId",
-        ],
-      },
-    },
-  },
-
-
-  // ----------------------------------------------
-  // getRelatedProducts
-  // ----------------------------------------------
-
-  {
-    type: "function",
-
-    function: {
-      name: "getRelatedProducts",
-
-      description:
-        "Find products related to a product for useful upselling and cross-selling opportunities.",
-
-      parameters: {
-        type: "object",
-
-        properties: {
-          productId: {
-            type: "string",
-
-            description:
-              "The ID of the product the user is considering.",
-          },
-
-          maxPrice: {
-            type: "number",
-
-            description:
-              "Maximum price for related products.",
-          },
-        },
-
-        required: [
-          "productId",
         ],
       },
     },
@@ -517,7 +578,13 @@ CROSS-SELLING:
 
 Recommend complementary products only when they
 are genuinely useful with the product being considered.
-
+VARIANT VALIDATION:
+- Never invent a product size or color.
+- Before creating an order, use getProduct to verify the product's actual sizes and colors.
+- If the requested size or color is unavailable, DO NOT call createOrder.
+- Tell the user that the requested variant is unavailable.
+- Show the available sizes/colors and ask the user to choose one.
+- Only call createOrder after the requested variant has been verified as available.
 
 IMPORTANT:
 
@@ -533,6 +600,7 @@ Never invent:
 
 Only use information returned by the tools.
 
+
 PURCHASING:
 
 When the user wants to buy a product:
@@ -541,9 +609,17 @@ When the user wants to buy a product:
 2. Confirm the product, merchant, price and quantity.
 3. Ask the user for explicit confirmation before creating the order.
 4. Only call createOrder after the user explicitly confirms.
-5. Never create an order merely because the user says "buy" if confirmation has not yet been obtained.
+5. Never create an order merely because the user says "buy"
+   if confirmation has not yet been obtained.
 6. Never invent shipping information.
-7. If shipping information is missing, ask the user for it before creating the order.
+7. If shipping information is missing, ask the user for it
+   before creating the order.
+8. After createOrder succeeds, tell the user that the
+   order is ready for payment.
+9. Never claim payment is successful until payment verification
+   succeeds.
+10. Do not generate or display a Razorpay payment URL.
+11. The frontend will provide the payment button.
 
 Keep responses concise and conversational.
 `;
@@ -563,7 +639,8 @@ const buildProductContext = (products) => {
     id: product.id,
     name: product.name,
     price: product.price,
-    merchant: product.merchant?.name || null,
+    merchant:
+      product.merchant?.name || null,
   }));
 };
 
@@ -606,14 +683,14 @@ const extractToolCall = (
 
 
   // ----------------------------------------------
-  // OpenAI
+  // Groq
   // ----------------------------------------------
 
-  if (provider === "openai") {
+  if (provider === "groq") {
 
     const toolCalls =
       response
-        .choices?.[0]
+        ?.choices?.[0]
         ?.message
         ?.tool_calls;
 
@@ -638,7 +715,7 @@ const extractToolCall = (
     } catch (error) {
 
       console.error(
-        "Failed to parse OpenAI tool arguments:",
+        "Failed to parse Groq tool arguments:",
         error.message
       );
 
@@ -654,6 +731,7 @@ const extractToolCall = (
         call.id,
     };
   }
+
 
   return null;
 };
@@ -674,11 +752,11 @@ const extractText = (
   }
 
 
-  if (provider === "openai") {
+  if (provider === "groq") {
 
     return (
       response
-        .choices?.[0]
+        ?.choices?.[0]
         ?.message
         ?.content || null
     );
@@ -698,26 +776,47 @@ const executeTool = async (
   args,
   userId
 ) => {
-  console.log(`🔧 Executing tool: ${toolName}`);
+
+  console.log(
+    `🔧 Executing tool: ${toolName}`
+  );
 
   switch (toolName) {
+
     case "searchProducts":
-      return await searchProducts(args || {});
+
+      return await searchProducts(
+        args || {}
+      );
+
 
     case "getProduct":
-      return await getProduct(args || {});
+
+      return await getProduct(
+        args || {}
+      );
+
 
     case "getRelatedProducts":
-      return await getRelatedProducts(args || {});
+
+      return await getRelatedProducts(
+        args || {}
+      );
+
 
     case "createOrder":
+
       return await createOrder({
         ...(args || {}),
         userId,
       });
 
+
     default:
-      throw new Error(`Unknown tool: ${toolName}`);
+
+      throw new Error(
+        `Unknown tool: ${toolName}`
+      );
   }
 };
 
@@ -734,6 +833,9 @@ export const runAgent = async (
 ) => {
 
   try {
+
+    let paymentAction = null;
+
 
     // ==============================================
     // PREVIOUS PRODUCT CONTEXT
@@ -783,6 +885,10 @@ Never invent a product ID.
         : "";
 
 
+    // ==============================================
+    // FULL SYSTEM INSTRUCTION
+    // ==============================================
+
     const fullSystemInstruction = `
 ${systemInstruction}
 
@@ -827,10 +933,17 @@ ${productContextInstruction}
 
 
     // ==============================================
-    // OPENAI CONVERSATION
+    // GROQ CONVERSATION
     // ==============================================
 
-    let openAIConversation = [
+    let groqConversation = [
+
+      {
+        role: "system",
+
+        content:
+          fullSystemInstruction,
+      },
 
       ...history.map((item) => ({
 
@@ -877,6 +990,26 @@ ${productContextInstruction}
         await generateWithFallback({
 
           // ----------------------------------------
+          // Groq
+          // ----------------------------------------
+
+          groqRequest: {
+
+            messages:
+              groqConversation,
+
+            tools:
+              groqTools,
+
+            tool_choice:
+              "auto",
+
+            temperature:
+              0.2,
+          },
+
+
+          // ----------------------------------------
           // Gemini
           // ----------------------------------------
 
@@ -893,31 +1026,6 @@ ${productContextInstruction}
               systemInstruction:
                 fullSystemInstruction,
             },
-
-          },
-
-
-          // ----------------------------------------
-          // OpenAI
-          // ----------------------------------------
-
-          openAIRequest: {
-
-            messages: [
-
-              {
-                role: "system",
-
-                content:
-                  fullSystemInstruction,
-              },
-
-              ...openAIConversation,
-
-            ],
-
-            tools:
-              openAITools,
           },
 
         });
@@ -963,6 +1071,9 @@ ${productContextInstruction}
 
             productContext:
               latestProducts,
+
+            action:
+              paymentAction,
           };
         }
 
@@ -971,12 +1082,16 @@ ${productContextInstruction}
           "⚠️ AI returned neither text nor a tool call."
         );
 
+
         return {
           response:
             "I couldn't generate a response right now.",
 
           productContext:
             latestProducts,
+
+          action:
+            paymentAction,
         };
       }
 
@@ -991,6 +1106,47 @@ ${productContextInstruction}
           functionCall.args,
           userId
         );
+
+
+      // ============================================
+      // PREPARE PAYMENT ACTION
+      // ============================================
+
+      if (
+        functionCall.name ===
+          "createOrder" &&
+        toolResult?.order &&
+        toolResult?.razorpay
+      ) {
+
+        paymentAction = {
+
+          type:
+            "OPEN_PAYMENT",
+
+          orderId:
+            toolResult.order.id,
+
+          razorpayOrderId:
+            toolResult.razorpay.orderId,
+
+          amount:
+            toolResult.razorpay.amount,
+
+          currency:
+            toolResult.razorpay.currency,
+
+          keyId:
+            toolResult.razorpay.keyId,
+
+        };
+
+
+        console.log(
+          "💳 Payment action prepared:",
+          paymentAction
+        );
+      }
 
 
       console.log(
@@ -1029,7 +1185,8 @@ ${productContextInstruction}
 
       geminiConversation.push({
 
-        role: "model",
+        role:
+          "model",
 
         parts: [
           {
@@ -1048,7 +1205,8 @@ ${productContextInstruction}
 
       geminiConversation.push({
 
-        role: "user",
+        role:
+          "user",
 
         parts: [
           {
@@ -1069,7 +1227,7 @@ ${productContextInstruction}
 
 
       // ============================================
-      // OPENAI TOOL HISTORY
+      // GROQ TOOL HISTORY
       // ============================================
 
       const toolCallId =
@@ -1077,11 +1235,13 @@ ${productContextInstruction}
         `shiru-tool-${iteration}`;
 
 
-      openAIConversation.push({
+      groqConversation.push({
 
-        role: "assistant",
+        role:
+          "assistant",
 
-        content: null,
+        content:
+          null,
 
         tool_calls: [
 
@@ -1089,7 +1249,8 @@ ${productContextInstruction}
             id:
               toolCallId,
 
-            type: "function",
+            type:
+              "function",
 
             function: {
 
@@ -1107,9 +1268,10 @@ ${productContextInstruction}
       });
 
 
-      openAIConversation.push({
+      groqConversation.push({
 
-        role: "tool",
+        role:
+          "tool",
 
         tool_call_id:
           toolCallId,
@@ -1128,11 +1290,15 @@ ${productContextInstruction}
     // ==============================================
 
     return {
+
       response:
         "I couldn't complete the shopping request. Please try again.",
 
       productContext:
         latestProducts,
+
+      action:
+        paymentAction,
     };
 
 
@@ -1172,6 +1338,9 @@ ${productContextInstruction}
           buildProductContext(
             products
           ),
+
+        action:
+          null,
       };
 
 
@@ -1190,6 +1359,9 @@ ${productContextInstruction}
 
         productContext:
           productContext,
+
+        action:
+          null,
       };
     }
   }

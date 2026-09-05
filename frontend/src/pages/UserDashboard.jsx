@@ -174,7 +174,7 @@ const UserDashboard = () => {
       [e.target.id]: e.target.value,
     })
   }
-
+ 
   const handleBuy = async () => {
     if (!shipping.name || !shipping.phone || !shipping.addressLine1 || !shipping.city || !shipping.postalCode) {
       setBuyError('Please fill in your shipping details')
@@ -319,12 +319,16 @@ const UserDashboard = () => {
                         onSubmit={(e) => {
                           e.preventDefault()
 
-                          if (!searchQuery.trim()) return
+                          const trimmed = searchQuery.trim()
 
+                          // Ask always takes the user to SHIRU's chat page.
+                          // If they typed something, SHIRU answers it right away.
+                          // If they didn't, SHIRU greets them and starts listening
+                          // so they can just talk instead.
                           navigate(
-                            `/chat?query=${encodeURIComponent(
-                              searchQuery.trim()
-                            )}`
+                            trimmed
+                              ? `/chat?query=${encodeURIComponent(trimmed)}`
+                              : '/chat'
                           )
                         }}
                         className="mx-auto mt-7 flex max-w-md items-center gap-2"

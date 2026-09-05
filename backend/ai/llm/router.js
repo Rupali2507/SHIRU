@@ -1,22 +1,71 @@
+import { generateWithGroq } from "./groq.js";
 import { generateWithGemini } from "./gemini.js";
-import { generateWithOpenAI } from "./openai.js";
 
 const shouldFallback = (error) => {
-  const status = Number(error?.status || error?.code);
+  const status = Number(
+    error?.status ||
+    error?.statusCode ||
+    error?.code
+  );
 
-  return [429, 500, 502, 503, 504].includes(status);
+  return [
+    400,
+    401,
+    403,
+    408,
+    429,
+    500,
+    502,
+    503,
+    504,
+  ].includes(status);
 };
 
 export const generateWithFallback = async ({
+  groqRequest,
   geminiRequest,
-  openAIRequest,
 }) => {
-  
+
+  // =========================================================
+  // 1. GROQ
+  // =========================================================
+
   try {
-    console.log("🤖 Trying Gemini...");
+    console.log("🟢 Trying Groq...");
+
+    const response =
+      await generateWithGroq(groqRequest);
+
+    console.log("✅ Groq succeeded");
+
+    return {
+      provider: "groq",
+      response,
+    };
+
+  } catch (error) {
+
+    console.error(
+      "❌ Groq failed:",
+      error.message
+    );
+
+    if (!shouldFallback(error)) {
+      throw error;
+    }
+  }
+
+  // =========================================================
+  // 2. GEMINI
+  // =========================================================
+
+  try {
+    console.log("🟡 Falling back to Gemini...");
 
     const response =
       await generateWithGemini(geminiRequest);
+
+    console.log("✅ Gemini succeeded");
 
     return {
       provider: "gemini",
@@ -27,31 +76,6 @@ export const generateWithFallback = async ({
 
     console.error(
       "❌ Gemini failed:",
-      error.message
-    );
-
-    if (!shouldFallback(error)) {
-      throw error;
-    }
-  }
-
-
-
-  try {
-    console.log("🔄 Falling back to OpenAI...");
-
-    const response =
-      await generateWithOpenAI(openAIRequest);
-
-    return {
-      provider: "openai",
-      response,
-    };
-
-  } catch (error) {
-
-    console.error(
-      "❌ OpenAI failed:",
       error.message
     );
 
